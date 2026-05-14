@@ -62,26 +62,34 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 0.75rem;
+  /* Cyber Violet dark gaming theme */
+  --background: oklch(0.13 0.05 295);
+  --foreground: oklch(0.97 0.01 280);
+  --card: oklch(0.18 0.06 290 / 0.6);
+  --card-foreground: oklch(0.97 0.01 280);
+  --popover: oklch(0.16 0.06 290);
+  --popover-foreground: oklch(0.97 0.01 280);
+  --primary: oklch(0.62 0.22 295);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-glow: oklch(0.75 0.18 295);
+  --secondary: oklch(0.22 0.06 290);
+  --secondary-foreground: oklch(0.97 0.01 280);
+  --muted: oklch(0.22 0.05 290);
+  --muted-foreground: oklch(0.7 0.04 285);
+  --accent: oklch(0.78 0.16 200);
+  --accent-foreground: oklch(0.13 0.05 295);
+  --destructive: oklch(0.65 0.24 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.72 0.18 150);
+  --warning: oklch(0.82 0.17 85);
+  --border: oklch(0.3 0.06 290 / 0.6);
+  --input: oklch(0.22 0.06 290);
+  --ring: oklch(0.62 0.22 295);
+  --gradient-primary: linear-gradient(135deg, oklch(0.62 0.22 295), oklch(0.78 0.16 200));
+  --gradient-hero: radial-gradient(ellipse at top, oklch(0.32 0.18 295 / 0.6), transparent 60%), linear-gradient(180deg, oklch(0.13 0.05 295), oklch(0.1 0.04 290));
+  --shadow-neon: 0 0 40px oklch(0.62 0.22 295 / 0.4);
+  --shadow-cyan: 0 0 30px oklch(0.78 0.16 200 / 0.35);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -140,5 +148,29 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    background-image: var(--gradient-hero);
+    background-attachment: fixed;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
   }
+  html { scroll-behavior: smooth; }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--card) 70%, transparent);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+  }
+  .neon-border {
+    box-shadow: var(--shadow-neon), inset 0 1px 0 oklch(1 0 0 / 0.05);
+  }
+  .glow-primary { box-shadow: var(--shadow-neon); }
+  .glow-cyan { box-shadow: var(--shadow-cyan); }
 }
