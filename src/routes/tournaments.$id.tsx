@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trophy, Users, Coins, Clock, MapPin, Award } from "lucide-react";
@@ -40,6 +40,17 @@ function TournamentDetail() {
     },
   });
 
+  const { data: participants } = useQuery({
+    queryKey: ["participants", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("tournament_participants")
+        .select("id, team_name, igl_name, user_id, joined_at")
+        .eq("tournament_id", id)
+        .order("joined_at");
+      return data ?? [];
+    },
+  });
+
   const handleJoin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return navigate({ to: "/auth" });
@@ -70,6 +81,8 @@ function TournamentDetail() {
         <h1 className="mt-3 text-3xl font-bold">{t.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t.mode} · {t.map ?? "TBA"}</p>
 
+        <Countdown target={t.start_time} />
+
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <Info icon={<Coins className="h-4 w-4" />} label="Prize Pool" value={`৳${Number(t.prize_pool).toLocaleString()}`} />
           <Info icon={<Trophy className="h-4 w-4" />} label="Entry" value={`৳${Number(t.entry_fee).toLocaleString()}`} />
@@ -87,6 +100,31 @@ function TournamentDetail() {
           <div className="mt-5">
             <h3 className="text-sm font-semibold">Description</h3>
             <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{t.description}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="glass mt-6 rounded-2xl p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> Participants</h3>
+          <span className="text-xs text-muted-foreground">{participants?.length ?? 0} / {t.total_slots}</span>
+        </div>
+        {(participants?.length ?? 0) === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No teams have joined yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {participants!.map((p, i) => (
+              <div key={p.id} className="flex items-center justify-between rounded-lg bg-secondary/40 p-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-primary">#{i + 1}</span>
+                  <div>
+                    <p className="font-semibold">{p.team_name}</p>
+                    <p className="text-xs text-muted-foreground">IGL: {p.igl_name}</p>
+                  </div>
+                </div>
+                <code className="text-[10px] text-muted-foreground">{p.user_id.slice(0, 8)}…</code>
+              </div>
+            ))}
           </div>
         )}
       </div>
