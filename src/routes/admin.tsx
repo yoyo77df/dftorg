@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,15 @@ function AdminPage() {
     enabled: isAdmin,
     queryFn: async () => {
       const { data } = await supabase.from("withdrawals").select("*").eq("status", "pending").order("created_at");
+      return data ?? [];
+    },
+  });
+
+  const { data: allTournaments } = useQuery({
+    queryKey: ["admin-tournaments"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase.from("tournaments").select("*").order("start_time", { ascending: false });
       return data ?? [];
     },
   });
@@ -103,10 +112,12 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="tournaments"><Trophy className="mr-1 h-3 w-3" /> New Tournament</TabsTrigger>
+          <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
+          <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
+          <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deposits" className="mt-4 space-y-2">
@@ -131,7 +142,18 @@ function AdminPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="tournaments">
+        <TabsContent value="manage" className="mt-4 space-y-2">
+          {(allTournaments ?? []).length === 0 && <Empty msg="No tournaments yet." />}
+          {(allTournaments ?? []).map((t) => (
+            <TournamentRow key={t.id} t={t} qc={qc} />
+          ))}
+        </TabsContent>
+
+        <TabsContent value="users">
+          <UserManager />
+        </TabsContent>
+
+        <TabsContent value="new">
           <form onSubmit={handleCreateTournament} className="glass mt-4 space-y-3 rounded-xl p-5">
             <F name="title" label="Title" />
             <div className="grid grid-cols-3 gap-3">
@@ -196,4 +218,204 @@ function Sel({ name, label, options }: { name: string; label: string; options: s
       </select>
     </div>
   );
+}
+
+function TournamentRow({ t, qc }: { t: any; qc: ReturnType<typeof useQueryClient> }) {
+  const [open, setOpen] = useState(false);
+  const [roomId, setRoomId] = useState(t.room_id ?? "");
+  const [pwd, setPwd] = useState(t.room_password ?? "");
+  const [status, setStatus] = useState(t.status);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("tournaments").update({
+      room_id: roomId || null,
+      room_password: pwd || null,
+      status,
+      updated_at: new Date().toISOString(),
+    }).eq("id", t.id);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Updated — visible to joined players");
+    qc.invalidateQueries({ queryKey: ["admin-tournaments"] });
+    qc.invalidateQueries({ queryKey: ["tournament", t.id] });
+    setOpen(false);
+  };
+
+  const remove = async () => {
+    if (!confirm(`Delete "${t.title}"?`)) return;
+    const { error } = await supabase.from("tournaments").delete().eq("id", t.id);
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["admin-tournaments"] });
+  };
+
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold truncate">{t.title}</p>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] uppercase text-primary">{t.status}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t.game} · {t.mode} · {t.joined_slots}/{t.total_slots} · {new Date(t.start_time).toLocaleString()}
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Link to="/tournaments/$id" params={{ id: t.id }}>
+            <Button size="sm" variant="ghost">View</Button>
+          </Link>
+          <Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>
+            <Pencil className="mr-1 h-3 w-3" /> Edit
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Room ID</Label>
+              <Input value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="e.g. 12345678" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Room Password</Label>
+              <Input value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="e.g. arena123" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {["upcoming", "live", "full", "completed", "cancelled"].map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={save} disabled={saving} className="bg-[var(--gradient-primary)] glow-primary flex-1">
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+            <Button size="sm" variant="destructive" onClick={remove}>Delete</Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Room ID & password automatically appear to joined participants on the tournament page.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserManager() {
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<any | null>(null);
+  const [prize, setPrize] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const search = async () => {
+    if (!q.trim()) return;
+    setSearching(true);
+    const term = q.trim();
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, gaming_uid, country, earnings, is_banned, wins, matches_played")
+      .or(`gaming_uid.ilike.%${term}%,username.ilike.%${term}%,id.eq.${isUuid(term) ? term : "00000000-0000-0000-0000-000000000000"}`)
+      .limit(20);
+    setResults(data ?? []);
+    setSearching(false);
+  };
+
+  const loadWallet = async (uid: string) => {
+    const { data } = await supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle();
+    return data?.balance ?? 0;
+  };
+
+  const [bal, setBal] = useState<number | null>(null);
+  useEffect(() => {
+    if (selected) loadWallet(selected.id).then(setBal);
+    else setBal(null);
+  }, [selected]);
+
+  const addPrize = async () => {
+    const amt = Number(prize);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_add_prize", { _user_id: selected.id, _amount: amt, _note: "Prize money" });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(`৳${amt} prize added`);
+    setPrize("");
+    loadWallet(selected.id).then(setBal);
+    qc.invalidateQueries();
+  };
+
+  const toggleBan = async () => {
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_set_ban", { _user_id: selected.id, _banned: !selected.is_banned });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(selected.is_banned ? "Account unbanned" : "Account banned");
+    setSelected({ ...selected, is_banned: !selected.is_banned });
+    setResults((r) => r.map((u) => (u.id === selected.id ? { ...u, is_banned: !selected.is_banned } : u)));
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="glass rounded-xl p-4">
+        <Label>Search by Gaming UID, username, or User ID</Label>
+        <div className="mt-2 flex gap-2">
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. 1234567890 or playername"
+            onKeyDown={(e) => e.key === "Enter" && search()} />
+          <Button onClick={search} disabled={searching} className="bg-[var(--gradient-primary)] glow-primary">
+            <Search className="mr-1 h-3 w-3" /> {searching ? "…" : "Search"}
+          </Button>
+        </div>
+      </div>
+
+      {results.length > 0 && (
+        <div className="space-y-2">
+          {results.map((u) => (
+            <button key={u.id} onClick={() => setSelected(u)}
+              className={`glass w-full rounded-xl p-3 text-left transition hover:glow-primary ${selected?.id === u.id ? "neon-border" : ""}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold">{u.username} {u.is_banned && <span className="ml-1 text-xs text-destructive">[BANNED]</span>}</p>
+                  <p className="text-xs text-muted-foreground">UID: {u.gaming_uid ?? "—"} · {u.wins}W / {u.matches_played}M · ৳{Number(u.earnings).toLocaleString()}</p>
+                </div>
+                <code className="text-[10px] text-muted-foreground">{u.id.slice(0, 8)}…</code>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <div className="glass neon-border rounded-xl p-4 space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Selected user</p>
+            <p className="font-bold">{selected.username}</p>
+            <p className="text-xs">Wallet: <b>৳{Number(bal ?? 0).toLocaleString()}</b> · Earnings: ৳{Number(selected.earnings).toLocaleString()}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1"><Gift className="h-3 w-3" /> Add prize money</Label>
+            <div className="flex gap-2">
+              <Input type="number" min="1" value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="৳ amount" />
+              <Button onClick={addPrize} disabled={busy} className="bg-[var(--gradient-primary)] glow-primary">Credit</Button>
+            </div>
+          </div>
+
+          <Button variant={selected.is_banned ? "outline" : "destructive"} onClick={toggleBan} disabled={busy} className="w-full">
+            <Ban className="mr-1 h-3 w-3" /> {selected.is_banned ? "Unban account" : "Ban account"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function isUuid(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
