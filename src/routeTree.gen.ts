@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TournamentsIdRouteImport } from './routes/tournaments.$id'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TournamentsIdRoute = TournamentsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => TournamentsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,8 +65,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/profile': typeof ProfileRoute
-  '/tournaments': typeof TournamentsRoute
+  '/tournaments': typeof TournamentsRouteWithChildren
   '/wallet': typeof WalletRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,8 +75,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/profile': typeof ProfileRoute
-  '/tournaments': typeof TournamentsRoute
+  '/tournaments': typeof TournamentsRouteWithChildren
   '/wallet': typeof WalletRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,8 +86,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/profile': typeof ProfileRoute
-  '/tournaments': typeof TournamentsRoute
+  '/tournaments': typeof TournamentsRouteWithChildren
   '/wallet': typeof WalletRoute
+  '/tournaments/$id': typeof TournamentsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/tournaments'
     | '/wallet'
+    | '/tournaments/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/tournaments'
     | '/wallet'
+    | '/tournaments/$id'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/tournaments'
     | '/wallet'
+    | '/tournaments/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,7 +129,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   ProfileRoute: typeof ProfileRoute
-  TournamentsRoute: typeof TournamentsRoute
+  TournamentsRoute: typeof TournamentsRouteWithChildren
   WalletRoute: typeof WalletRoute
 }
 
@@ -172,8 +184,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tournaments/$id': {
+      id: '/tournaments/$id'
+      path: '/$id'
+      fullPath: '/tournaments/$id'
+      preLoaderRoute: typeof TournamentsIdRouteImport
+      parentRoute: typeof TournamentsRoute
+    }
   }
 }
+
+interface TournamentsRouteChildren {
+  TournamentsIdRoute: typeof TournamentsIdRoute
+}
+
+const TournamentsRouteChildren: TournamentsRouteChildren = {
+  TournamentsIdRoute: TournamentsIdRoute,
+}
+
+const TournamentsRouteWithChildren = TournamentsRoute._addFileChildren(
+  TournamentsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -181,9 +212,19 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   ProfileRoute: ProfileRoute,
-  TournamentsRoute: TournamentsRoute,
+  TournamentsRoute: TournamentsRouteWithChildren,
   WalletRoute: WalletRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

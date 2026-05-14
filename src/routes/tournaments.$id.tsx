@@ -1,0 +1,151 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Trophy, Users, Coins, Clock, MapPin, Award } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export const Route = createFileRoute("/tournaments/$id")({
+  head: () => ({ meta: [{ title: "Tournament — ArenaX" }] }),
+  component: TournamentDetail,
+});
+
+function TournamentDetail() {
+  const { id } = Route.useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [joining, setJoining] = useState(false);
+
+  const { data: t, isLoading } = useQuery({
+    queryKey: ["tournament", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tournaments").select("*").eq("id", id).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: joined } = useQuery({
+    queryKey: ["joined", id, user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from("tournament_participants")
+        .select("id").eq("tournament_id", id).eq("user_id", user!.id).maybeSingle();
+      return !!data;
+    },
+  });
+
+  const handleJoin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return navigate({ to: "/auth" });
+    const fd = new FormData(e.currentTarget);
+    setJoining(true);
+    const { error } = await supabase.rpc("join_tournament", {
+      _tournament_id: id,
+      _team_name: String(fd.get("team_name")).trim(),
+      _igl_name: String(fd.get("igl_name")).trim(),
+    });
+    setJoining(false);
+    if (error) return toast.error(error.message);
+    toast.success("Joined! Good luck 🔥");
+    qc.invalidateQueries();
+  };
+
+  if (isLoading || !t) return <div className="container mx-auto px-4 py-12 text-center text-muted-foreground">Loading…</div>;
+
+  return (
+    <div className="container mx-auto max-w-3xl px-4 py-8">
+      <Link to="/tournaments" className="text-xs text-muted-foreground hover:text-primary">← All tournaments</Link>
+
+      <div className="glass neon-border mt-3 rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">{t.game}</span>
+          <span className="text-xs text-muted-foreground">{t.joined_slots}/{t.total_slots} slots</span>
+        </div>
+        <h1 className="mt-3 text-3xl font-bold">{t.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t.mode} · {t.map ?? "TBA"}</p>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Info icon={<Coins className="h-4 w-4" />} label="Prize Pool" value={`৳${Number(t.prize_pool).toLocaleString()}`} />
+          <Info icon={<Trophy className="h-4 w-4" />} label="Entry" value={`৳${Number(t.entry_fee).toLocaleString()}`} />
+          <Info icon={<Clock className="h-4 w-4" />} label="Starts" value={new Date(t.start_time).toLocaleString()} />
+          <Info icon={<MapPin className="h-4 w-4" />} label="Status" value={t.status} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <Prize rank="1st" amount={t.prize_first} />
+          <Prize rank="2nd" amount={t.prize_second} />
+          <Prize rank="3rd" amount={t.prize_third} />
+        </div>
+
+        {t.description && (
+          <div className="mt-5">
+            <h3 className="text-sm font-semibold">Description</h3>
+            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">{t.description}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="glass mt-6 rounded-2xl p-6">
+        {!user ? (
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Sign in to join this tournament.</p>
+            <Button onClick={() => navigate({ to: "/auth" })} className="mt-3 bg-[var(--gradient-primary)] glow-primary">Sign in</Button>
+          </div>
+        ) : joined ? (
+          <div className="text-center">
+            <p className="text-lg font-bold text-primary">✓ You're in!</p>
+            <p className="mt-1 text-xs text-muted-foreground">Room ID & password will appear before match starts.</p>
+            {t.room_id && (
+              <div className="mt-3 rounded-lg bg-primary/10 p-3 text-left text-sm">
+                <p><span className="text-muted-foreground">Room:</span> <b>{t.room_id}</b></p>
+                <p><span className="text-muted-foreground">Pass:</span> <b>{t.room_password}</b></p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleJoin} className="space-y-3">
+            <h3 className="font-bold">Join tournament</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="team_name">Team name</Label>
+                <Input id="team_name" name="team_name" required maxLength={40} placeholder="Phantom Squad" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="igl_name">IGL name</Label>
+                <Input id="igl_name" name="igl_name" required maxLength={40} placeholder="Captain in-game name" />
+              </div>
+            </div>
+            <Button disabled={joining} className="w-full bg-[var(--gradient-primary)] glow-primary">
+              {joining ? "Joining…" : `Join · Pay ৳${Number(t.entry_fee).toLocaleString()}`}
+            </Button>
+            <p className="text-center text-[11px] text-muted-foreground">Entry fee deducted from your wallet on join.</p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Info({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-secondary/40 p-3">
+      <div className="flex items-center gap-1 text-muted-foreground">{icon}<span className="text-[10px] uppercase tracking-wider">{label}</span></div>
+      <p className="mt-1 text-sm font-bold capitalize">{value}</p>
+    </div>
+  );
+}
+function Prize({ rank, amount }: { rank: string; amount: number }) {
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-center">
+      <Award className="mx-auto h-4 w-4 text-primary" />
+      <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{rank}</p>
+      <p className="text-sm font-bold">৳{Number(amount).toLocaleString()}</p>
+    </div>
+  );
+}
