@@ -187,3 +187,33 @@ function Prize({ rank, amount }: { rank: string; amount: number }) {
     </div>
   );
 }
+
+function Countdown({ target }: { target: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const i = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(i);
+  }, []);
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) {
+    return (
+      <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-center text-sm font-bold text-destructive animate-pulse">
+        🔴 LIVE / Started
+      </div>
+    );
+  }
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return (
+    <div className="mt-4 grid grid-cols-4 gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+      {[["Days", d], ["Hours", h], ["Min", m], ["Sec", s]].map(([l, v]) => (
+        <div key={l as string} className="text-center">
+          <p className="text-2xl font-bold text-primary tabular-nums">{String(v).padStart(2, "0")}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{l}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
