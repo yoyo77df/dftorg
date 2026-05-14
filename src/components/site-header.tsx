@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy, Wallet, User as UserIcon, Shield, LogOut, Gamepad2 } from "lucide-react";
+import { LayoutDashboard, Trophy, Wallet, User as UserIcon, Shield, LogOut, Gamepad2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,7 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
+          {user && <NavLink to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />}
           <NavLink to="/tournaments" icon={<Trophy className="h-4 w-4" />} label="Tournaments" />
           {user && <NavLink to="/wallet" icon={<Wallet className="h-4 w-4" />} label="Wallet" />}
           {user && <NavLink to="/profile" icon={<UserIcon className="h-4 w-4" />} label="Profile" />}
