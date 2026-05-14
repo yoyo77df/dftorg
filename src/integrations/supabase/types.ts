@@ -60,6 +60,7 @@ export type Database = {
           earnings: number
           gaming_uid: string | null
           id: string
+          is_banned: boolean
           matches_played: number
           rank: string
           total_kills: number
@@ -77,6 +78,7 @@ export type Database = {
           earnings?: number
           gaming_uid?: string | null
           id: string
+          is_banned?: boolean
           matches_played?: number
           rank?: string
           total_kills?: number
@@ -94,6 +96,7 @@ export type Database = {
           earnings?: number
           gaming_uid?: string | null
           id?: string
+          is_banned?: boolean
           matches_played?: number
           rank?: string
           total_kills?: number
@@ -327,6 +330,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_add_prize: {
+        Args: { _amount: number; _note?: string; _user_id: string }
+        Returns: undefined
+      }
+      admin_set_ban: {
+        Args: { _banned: boolean; _user_id: string }
+        Returns: undefined
+      }
       approve_deposit: { Args: { _deposit_id: string }; Returns: undefined }
       approve_withdrawal: {
         Args: { _withdrawal_id: string }
