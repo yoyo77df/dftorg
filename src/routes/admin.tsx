@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,15 @@ function AdminPage() {
     enabled: isAdmin,
     queryFn: async () => {
       const { data } = await supabase.from("withdrawals").select("*").eq("status", "pending").order("created_at");
+      return data ?? [];
+    },
+  });
+
+  const { data: allTournaments } = useQuery({
+    queryKey: ["admin-tournaments"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase.from("tournaments").select("*").order("start_time", { ascending: false });
       return data ?? [];
     },
   });
@@ -103,10 +112,12 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="tournaments"><Trophy className="mr-1 h-3 w-3" /> New Tournament</TabsTrigger>
+          <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
+          <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
+          <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deposits" className="mt-4 space-y-2">
@@ -131,7 +142,18 @@ function AdminPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="tournaments">
+        <TabsContent value="manage" className="mt-4 space-y-2">
+          {(allTournaments ?? []).length === 0 && <Empty msg="No tournaments yet." />}
+          {(allTournaments ?? []).map((t) => (
+            <TournamentRow key={t.id} t={t} qc={qc} />
+          ))}
+        </TabsContent>
+
+        <TabsContent value="users">
+          <UserManager />
+        </TabsContent>
+
+        <TabsContent value="new">
           <form onSubmit={handleCreateTournament} className="glass mt-4 space-y-3 rounded-xl p-5">
             <F name="title" label="Title" />
             <div className="grid grid-cols-3 gap-3">
