@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const WalletRoute = WalletRouteImport.update({
 const TournamentsRoute = TournamentsRouteImport.update({
   id: '/tournaments',
   path: '/tournaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/tournaments': typeof TournamentsRoute
   '/wallet': typeof WalletRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/tournaments': typeof TournamentsRoute
   '/wallet': typeof WalletRoute
 }
@@ -60,21 +68,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/profile': typeof ProfileRoute
   '/tournaments': typeof TournamentsRoute
   '/wallet': typeof WalletRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/tournaments' | '/wallet'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/profile'
+    | '/tournaments'
+    | '/wallet'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/tournaments' | '/wallet'
-  id: '__root__' | '/' | '/auth' | '/dashboard' | '/tournaments' | '/wallet'
+  to: '/' | '/auth' | '/dashboard' | '/profile' | '/tournaments' | '/wallet'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/profile'
+    | '/tournaments'
+    | '/wallet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  ProfileRoute: typeof ProfileRoute
   TournamentsRoute: typeof TournamentsRoute
   WalletRoute: typeof WalletRoute
 }
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/tournaments'
       fullPath: '/tournaments'
       preLoaderRoute: typeof TournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -123,6 +153,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  ProfileRoute: ProfileRoute,
   TournamentsRoute: TournamentsRoute,
   WalletRoute: WalletRoute,
 }
