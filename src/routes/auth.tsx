@@ -17,7 +17,7 @@ export const Route = createFileRoute("/auth")({
 const signupSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(6).max(72),
-  username: z.string().trim().min(3).max(24).regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, _ only"),
+  username: z.string().trim().min(3).max(24),
   country: z.string().trim().min(2).max(56),
   gaming_uid: z.string().trim().min(3).max(40),
 });
