@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,12 +24,8 @@ const signupSchema = z.object({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (user) navigate({ to: "/dashboard" });
-  }, [user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -81,6 +77,22 @@ function AuthPage() {
         <div className="glass rounded-2xl p-8 neon-border">
           <h1 className="text-2xl font-bold">Enter the <span className="text-gradient">arena</span></h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your gamer account.</p>
+
+          {user && (
+            <div className="mt-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">
+                Signed in as <span className="font-semibold text-foreground">{user.email}</span>
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/dashboard" })}>
+                  Dashboard
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => signOut()}>
+                  Sign out
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Tabs defaultValue="signin" className="mt-6">
             <TabsList className="grid w-full grid-cols-2">
