@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /wallet
+
+Sitemap: https://dftorftour.lovable.app/sitemap.xml

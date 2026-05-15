@@ -11,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — DFT ORG." }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin Console — DFT ORG." },
+      { name: "description", content: "DFT ORG. admin console for managing tournaments, deposits, withdrawals, and users." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: AdminPage,
 });
 
