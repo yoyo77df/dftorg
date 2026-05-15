@@ -82,12 +82,34 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
       { property: "og:description", content: "Compete in tournaments. Win cash. Climb ranks." },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "DFT ORG." },
       { name: "twitter:card", content: "summary" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "DFT ORG.",
+          url: "https://dftorftour.lovable.app",
+          description: "Premium esports tournament platform for Free Fire, PUBG, COD, and Valorant.",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "DFT ORG.",
+          url: "https://dftorftour.lovable.app",
+        }),
       },
     ],
   }),

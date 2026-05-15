@@ -10,7 +10,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — DFT ORG." }] }),
+  head: () => ({
+    meta: [
+      { title: "Sign in or Create Account — DFT ORG." },
+      { name: "description", content: "Sign in to DFT ORG. or create your gamer account to join real-money esports tournaments." },
+      { property: "og:title", content: "Sign in or Create Account — DFT ORG." },
+      { property: "og:description", content: "Sign in or create your DFT ORG. gamer account to start competing." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/auth" },
+    ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/auth" }],
+  }),
   component: AuthPage,
 });
 

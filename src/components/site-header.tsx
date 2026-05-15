@@ -25,7 +25,7 @@ export function SiteHeader() {
         </nav>
         <div className="flex items-center gap-2">
           {user ? (
-            <Button variant="ghost" size="sm" onClick={() => signOut()}>
+            <Button variant="ghost" size="sm" onClick={() => signOut()} aria-label="Log out">
               <LogOut className="h-4 w-4" />
             </Button>
           ) : (

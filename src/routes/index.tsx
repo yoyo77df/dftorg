@@ -4,6 +4,16 @@ import { Trophy, Zap, Users, Wallet, Shield, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Compete in Real-Money Esports Tournaments — DFT ORG." },
+      { name: "description", content: "Join real-money Free Fire, PUBG, COD, and Valorant tournaments on DFT ORG. Track your rank, build your clan, and cash out wins." },
+      { property: "og:title", content: "Compete in Real-Money Esports Tournaments — DFT ORG." },
+      { property: "og:description", content: "Real-money esports tournaments across mobile games. Win, rank up, and cash out." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/" },
+    ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/" }],
+  }),
   component: Index,
 });
 
@@ -18,7 +28,7 @@ function Index() {
               <Zap className="h-3 w-3 text-accent" /> Live esports — DFT ORG.
             </div>
             <h1 className="text-5xl font-extrabold tracking-tight md:text-7xl">
-              Compete. Win. <span className="text-gradient">Dominate.</span>
+              Compete in <span className="text-gradient">Real-Money</span> Esports Tournaments
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
               Join real-money tournaments across Free Fire, PUBG, COD, Valorant and more.
@@ -54,6 +64,7 @@ function Index() {
 
       {/* Features */}
       <section className="container mx-auto px-4 py-20">
+        <h2 className="mb-8 text-center text-3xl font-bold tracking-tight">Why DFT ORG.</h2>
         <div className="grid gap-6 md:grid-cols-3">
           {features.map((f) => (
             <div key={f.title} className="glass group rounded-2xl p-6 transition-all hover:-translate-y-1 hover:glow-primary">

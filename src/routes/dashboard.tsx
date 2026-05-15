@@ -6,7 +6,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — DFT ORG." }] }),
+  head: () => ({
+    meta: [
+      { title: "Player Dashboard — DFT ORG." },
+      { name: "description", content: "Your DFT ORG. player dashboard: rank, XP, wallet balance, and upcoming tournaments at a glance." },
+      { property: "og:title", content: "Player Dashboard — DFT ORG." },
+      { property: "og:description", content: "Your stats, wallet, and upcoming battles in one place." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/dashboard" },
+      { name: "robots", content: "noindex" },
+    ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/dashboard" }],
+  }),
   component: DashboardPage,
 });
 
@@ -57,11 +67,10 @@ function DashboardPage() {
       <div className="glass neon-border rounded-2xl p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Welcome back</p>
-            <h1 className="mt-1 text-3xl font-bold">
-              <span className="text-gradient">{profile?.username ?? "Player"}</span>
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">Rank: {profile?.rank ?? "Bronze"} · XP {profile?.xp ?? 0}</p>
+            <h1 className="text-3xl font-bold">Player Dashboard</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Welcome back, <span className="text-gradient font-semibold">{profile?.username ?? "Player"}</span> — Rank: {profile?.rank ?? "Bronze"} · XP {profile?.xp ?? 0}
+            </p>
           </div>
           <div className="rounded-xl bg-[var(--gradient-primary)] px-5 py-3 glow-primary">
             <p className="text-[10px] uppercase tracking-widest text-primary-foreground/80">Wallet</p>

@@ -10,7 +10,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/tournaments/$id")({
-  head: () => ({ meta: [{ title: "Tournament — DFT ORG." }] }),
+  loader: async ({ params }) => {
+    const { data } = await supabase
+      .from("tournaments")
+      .select("id, title, game, mode, description, start_time, entry_fee, prize_pool")
+      .eq("id", params.id)
+      .maybeSingle();
+    return { tournament: data };
+  },
+  head: ({ params, loaderData }) => {
+    const t = loaderData?.tournament;
+    const url = `https://dftorftour.lovable.app/tournaments/${params.id}`;
+    const title = t ? `${t.title} — DFT ORG.` : "Tournament — DFT ORG.";
+    const desc = t
+      ? `${t.game} ${t.mode} tournament. Prize pool ৳${Number(t.prize_pool).toLocaleString()}, entry ৳${Number(t.entry_fee).toLocaleString()}. Join on DFT ORG.`
+      : "Esports tournament details on DFT ORG.";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc.slice(0, 160) },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc.slice(0, 160) },
+        { property: "og:type", content: "event" },
+        { property: "og:url", content: url },
+      ],
+      links: [{ rel: "canonical", href: url }],
+      scripts: t
+        ? [{
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Event",
+              name: t.title,
+              description: t.description ?? desc,
+              startDate: t.start_time,
+              eventStatus: "https://schema.org/EventScheduled",
+              eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
+              location: { "@type": "VirtualLocation", url },
+              offers: {
+                "@type": "Offer",
+                price: Number(t.entry_fee),
+                priceCurrency: "BDT",
+                url,
+                availability: "https://schema.org/InStock",
+              },
+              organizer: { "@type": "Organization", name: "DFT ORG.", url: "https://dftorftour.lovable.app" },
+            }),
+          }]
+        : [],
+    };
+  },
   component: TournamentDetail,
 });
 

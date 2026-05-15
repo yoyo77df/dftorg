@@ -11,7 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Profile — DFT ORG." }] }),
+  head: () => ({
+    meta: [
+      { title: "User Profile — DFT ORG." },
+      { name: "description", content: "View and edit your DFT ORG. player profile: username, country, gaming UID, and bio." },
+      { property: "og:title", content: "User Profile — DFT ORG." },
+      { property: "og:description", content: "Manage your gamer profile, stats, and account info." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/profile" },
+      { name: "robots", content: "noindex" },
+    ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/profile" }],
+  }),
   component: ProfilePage,
 });
 
@@ -58,8 +68,8 @@ function ProfilePage() {
             <UserIcon className="h-8 w-8 text-primary-foreground" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold">{profile.username}</h1>
-            <p className="text-sm text-muted-foreground">{profile.rank} · {profile.xp} XP</p>
+            <h1 className="text-2xl font-bold">User Profile</h1>
+            <p className="text-sm text-muted-foreground">{profile.username} · {profile.rank} · {profile.xp} XP</p>
           </div>
         </div>
       </div>
