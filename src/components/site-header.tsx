@@ -13,7 +13,7 @@ export function SiteHeader() {
             <Gamepad2 className="h-5 w-5 text-primary-foreground" />
           </span>
           <span className="text-lg">
-            ARENA<span className="text-gradient">X</span>
+            DFT <span className="text-gradient">ORG.</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
