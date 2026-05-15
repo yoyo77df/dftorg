@@ -80,10 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "DFT ORG. — Premium Esports Tournament Platform" },
       { name: "description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
       { property: "og:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
-      { property: "og:description", content: "Compete in tournaments. Win cash. Climb ranks." },
+      { property: "og:description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "DFT ORG." },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
+      { name: "twitter:description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5c97f9e9-cde0-43c6-a477-cb311cfe0cfd" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5c97f9e9-cde0-43c6-a477-cb311cfe0cfd" },
     ],
     links: [
       {
