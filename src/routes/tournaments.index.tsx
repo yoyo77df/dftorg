@@ -5,7 +5,7 @@ import { Trophy, Users, Clock, Coins } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/tournaments")({
+export const Route = createFileRoute("/tournaments/")({
   head: () => ({
     meta: [
       { title: "Tournaments — ArenaX" },
