@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/tournaments/$id")({
-  head: () => ({ meta: [{ title: "Tournament — ArenaX" }] }),
+  head: () => ({ meta: [{ title: "Tournament — DFT ORG." }] }),
   component: TournamentDetail,
 });
 
