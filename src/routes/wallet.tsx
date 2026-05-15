@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/wallet")({
-  head: () => ({ meta: [{ title: "Wallet — ArenaX" }] }),
+  head: () => ({ meta: [{ title: "Wallet — DFT ORG." }] }),
   component: WalletPage,
 });
 

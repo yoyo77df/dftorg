@@ -15,7 +15,7 @@ function Index() {
         <div className="container mx-auto px-4 py-24 md:py-32">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-xs uppercase tracking-widest text-muted-foreground">
-              <Zap className="h-3 w-3 text-accent" /> Live esports arena
+              <Zap className="h-3 w-3 text-accent" /> Live esports — DFT ORG.
             </div>
             <h1 className="text-5xl font-extrabold tracking-tight md:text-7xl">
               Compete. Win. <span className="text-gradient">Dominate.</span>
