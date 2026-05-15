@@ -47,7 +47,13 @@ function TournamentDetail() {
         .select("id, team_name, igl_name, user_id, joined_at")
         .eq("tournament_id", id)
         .order("joined_at");
-      return data ?? [];
+      const list = data ?? [];
+      if (list.length === 0) return [];
+      const ids = list.map((p) => p.user_id);
+      const { data: profs } = await supabase.from("profiles")
+        .select("id, username, gaming_uid").in("id", ids);
+      const map = new Map((profs ?? []).map((p) => [p.id, p]));
+      return list.map((p) => ({ ...p, profile: map.get(p.user_id) }));
     },
   });
 
@@ -122,7 +128,10 @@ function TournamentDetail() {
                     <p className="text-xs text-muted-foreground">IGL: {p.igl_name}</p>
                   </div>
                 </div>
-                <code className="text-[10px] text-muted-foreground">{p.user_id.slice(0, 8)}…</code>
+                <div className="text-right">
+                  <p className="text-xs font-semibold">{p.profile?.username ?? "—"}</p>
+                  <code className="text-[10px] text-muted-foreground">UID: {p.profile?.gaming_uid ?? p.user_id.slice(0, 8) + "…"}</code>
+                </div>
               </div>
             ))}
           </div>
