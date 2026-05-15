@@ -10,7 +10,11 @@ export const Route = createFileRoute("/tournaments/")({
     meta: [
       { title: "Tournaments — DFT ORG." },
       { name: "description", content: "Browse live and upcoming esports tournaments across Free Fire, PUBG, COD, Valorant." },
+      { property: "og:title", content: "Esports Tournaments — DFT ORG." },
+      { property: "og:description", content: "Browse live and upcoming Free Fire, PUBG, COD, and Valorant tournaments." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/tournaments" },
     ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/tournaments" }],
   }),
   component: TournamentsPage,
 });
@@ -46,6 +50,7 @@ function TournamentsPage() {
         </div>
       )}
 
+      <h2 className="sr-only">Tournament list</h2>
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {data?.map((t) => (
           <Link key={t.id} to="/tournaments/$id" params={{ id: t.id }} className="group glass rounded-2xl p-5 transition-all hover:-translate-y-1 hover:glow-primary">

@@ -12,7 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/wallet")({
-  head: () => ({ meta: [{ title: "Wallet — DFT ORG." }] }),
+  head: () => ({
+    meta: [
+      { title: "Wallet Overview — DFT ORG." },
+      { name: "description", content: "Manage your DFT ORG. wallet: deposit via bKash or Nagad, withdraw winnings, and review transaction history." },
+      { property: "og:title", content: "Wallet Overview — DFT ORG." },
+      { property: "og:description", content: "Deposit, withdraw, and track every transaction in real time." },
+      { property: "og:url", content: "https://dftorftour.lovable.app/wallet" },
+      { name: "robots", content: "noindex" },
+    ],
+    links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/wallet" }],
+  }),
   component: WalletPage,
 });
 
@@ -133,8 +143,8 @@ function WalletPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="glass neon-border flex items-center justify-between rounded-2xl p-6">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Wallet balance</p>
-          <h1 className="mt-1 text-4xl font-bold text-gradient">৳ {Number(wallet?.balance ?? 0).toFixed(2)}</h1>
+          <h1 className="text-2xl font-bold">Wallet Overview</h1>
+          <p className="mt-2 text-4xl font-bold text-gradient">৳ {Number(wallet?.balance ?? 0).toFixed(2)}</p>
           <p className="mt-1 text-xs text-muted-foreground">Bonus: ৳ {Number(wallet?.bonus_balance ?? 0).toFixed(2)}</p>
         </div>
         <span className="grid h-14 w-14 place-items-center rounded-xl bg-[var(--gradient-primary)] glow-primary">
