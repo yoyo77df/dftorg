@@ -54,9 +54,9 @@ const TournamentsIndexRoute = TournamentsIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const TournamentsIdRoute = TournamentsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => TournamentsRoute,
+  id: '/tournaments/$id',
+  path: '/tournaments/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -130,6 +130,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ProfileRoute: typeof ProfileRoute
   WalletRoute: typeof WalletRoute
+  TournamentsIdRoute: typeof TournamentsIdRoute
   TournamentsIndexRoute: typeof TournamentsIndexRoute
 }
 
@@ -186,10 +187,10 @@ declare module '@tanstack/react-router' {
     }
     '/tournaments/$id': {
       id: '/tournaments/$id'
-      path: '/$id'
+      path: '/tournaments/$id'
       fullPath: '/tournaments/$id'
       preLoaderRoute: typeof TournamentsIdRouteImport
-      parentRoute: typeof TournamentsRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -201,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ProfileRoute: ProfileRoute,
   WalletRoute: WalletRoute,
+  TournamentsIdRoute: TournamentsIdRoute,
   TournamentsIndexRoute: TournamentsIndexRoute,
 }
 export const routeTree = rootRouteImport
