@@ -77,9 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ArenaX — Premium Esports Tournament Platform" },
+      { title: "DFT ORG. — Premium Esports Tournament Platform" },
       { name: "description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
-      { property: "og:title", content: "ArenaX — Premium Esports Tournament Platform" },
+      { property: "og:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
       { property: "og:description", content: "Compete in tournaments. Win cash. Climb ranks." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

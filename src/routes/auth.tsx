@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — ArenaX" }] }),
+  head: () => ({ meta: [{ title: "Sign in — DFT ORG." }] }),
   component: AuthPage,
 });
 
@@ -67,7 +67,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Account created! Entering arena…");
+    toast.success("Account created! Welcome to DFT ORG.…");
     navigate({ to: "/dashboard" });
   };
 
@@ -75,7 +75,7 @@ function AuthPage() {
     <div className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="glass rounded-2xl p-8 neon-border">
-          <h1 className="text-2xl font-bold">Enter the <span className="text-gradient">arena</span></h1>
+          <h1 className="text-2xl font-bold">Welcome to <span className="text-gradient">DFT ORG.</span></h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your gamer account.</p>
 
           {user && (

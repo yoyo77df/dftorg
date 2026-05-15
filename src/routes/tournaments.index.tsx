@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/tournaments/")({
   head: () => ({
     meta: [
-      { title: "Tournaments — ArenaX" },
+      { title: "Tournaments — DFT ORG." },
       { name: "description", content: "Browse live and upcoming esports tournaments across Free Fire, PUBG, COD, Valorant." },
     ],
   }),

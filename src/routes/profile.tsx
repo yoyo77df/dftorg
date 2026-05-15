@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Profile — ArenaX" }] }),
+  head: () => ({ meta: [{ title: "Profile — DFT ORG." }] }),
   component: ProfilePage,
 });
 
