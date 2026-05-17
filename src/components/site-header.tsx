@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { LayoutDashboard, Trophy, Wallet, User as UserIcon, Shield, LogOut, Gamepad2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 export function SiteHeader() {
   const { user, isAdmin, signOut } = useAuth();
@@ -24,6 +25,7 @@ export function SiteHeader() {
           {isAdmin && <NavLink to="/admin" icon={<Shield className="h-4 w-4" />} label="Admin" />}
         </nav>
         <div className="flex items-center gap-2">
+          <NotificationsBell />
           {user ? (
             <Button variant="ghost" size="sm" onClick={() => signOut()} aria-label="Log out">
               <LogOut className="h-4 w-4" />
