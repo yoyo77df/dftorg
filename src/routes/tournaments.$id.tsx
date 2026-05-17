@@ -138,6 +138,33 @@ function TournamentDetail() {
 
         <Countdown target={t.start_time} />
 
+        <div className="mt-5 rounded-xl border border-primary/40 bg-primary/10 p-4">
+          <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+            🔑 Room ID & Password
+          </h3>
+          {t.room_id && t.room_password ? (
+            <div className="mt-2 space-y-1 text-sm">
+              <p>
+                <span className="text-muted-foreground">Room ID:</span>{" "}
+                <b className="text-base">{t.room_id}</b>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Password:</span>{" "}
+                <b className="text-base">{t.room_password}</b>
+              </p>
+              {!joined && user && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Join the tournament to confirm your slot.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-foreground/90 leading-relaxed">
+              রাত ৮ টায় এই ওয়েবসাইট এ রুম আইডি ও রুম পাসওয়ার্ড দেয়া হবে।
+            </p>
+          )}
+        </div>
+
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <Info icon={<Coins className="h-4 w-4" />} label="Prize Pool" value={`৳${Number(t.prize_pool).toLocaleString()}`} />
           <Info icon={<Trophy className="h-4 w-4" />} label="Entry" value={`৳${Number(t.entry_fee).toLocaleString()}`} />
@@ -196,13 +223,7 @@ function TournamentDetail() {
         ) : joined ? (
           <div className="text-center">
             <p className="text-lg font-bold text-primary">✓ You're in!</p>
-            <p className="mt-1 text-xs text-muted-foreground">Room ID & password will appear before match starts.</p>
-            {t.room_id && (
-              <div className="mt-3 rounded-lg bg-primary/10 p-3 text-left text-sm">
-                <p><span className="text-muted-foreground">Room:</span> <b>{t.room_id}</b></p>
-                <p><span className="text-muted-foreground">Pass:</span> <b>{t.room_password}</b></p>
-              </div>
-            )}
+            <p className="mt-1 text-xs text-muted-foreground">Room ID & password are shown above when released.</p>
           </div>
         ) : (
           <form onSubmit={handleJoin} className="space-y-3">
