@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Trophy, Zap, Users, Wallet, Shield, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -18,6 +21,57 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const qc = useQueryClient();
+
+  const { data: stats } = useQuery({
+    queryKey: ["home-stats"],
+    queryFn: async () => {
+      const [players, tournaments, prize, games] = await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("tournaments").select("*", { count: "exact", head: true }),
+        supabase.from("tournaments").select("prize_pool"),
+        supabase.from("tournaments").select("game"),
+      ]);
+      const prizeSum = (prize.data ?? []).reduce(
+        (s, r: any) => s + Number(r.prize_pool ?? 0),
+        0,
+      );
+      const gameSet = new Set((games.data ?? []).map((r: any) => r.game));
+      return {
+        players: players.count ?? 0,
+        tournaments: tournaments.count ?? 0,
+        prize: prizeSum,
+        games: gameSet.size,
+      };
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("home-stats-rt")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => qc.invalidateQueries({ queryKey: ["home-stats"] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tournaments" },
+        () => qc.invalidateQueries({ queryKey: ["home-stats"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [qc]);
+
+  const items = [
+    { label: "Active players", value: fmt(stats?.players) },
+    { label: "Tournaments", value: fmt(stats?.tournaments) },
+    { label: "Prize pool", value: `৳ ${fmt(stats?.prize)}` },
+    { label: "Games", value: String(stats?.games ?? 0) },
+  ];
+
   return (
     <div>
       {/* Hero */}
@@ -47,12 +101,7 @@ function Index() {
           </div>
 
           <div className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
-            {[
-              { label: "Active players", value: "12.4K" },
-              { label: "Tournaments", value: "320+" },
-              { label: "Prize pool", value: "৳ 8.2M" },
-              { label: "Games", value: "5" },
-            ].map((s) => (
+            {items.map((s) => (
               <div key={s.label} className="glass rounded-xl p-5 text-center">
                 <div className="text-2xl font-bold text-gradient">{s.value}</div>
                 <div className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">{s.label}</div>
