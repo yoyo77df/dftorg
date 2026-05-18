@@ -6,6 +6,13 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+function fmt(n: number | undefined): string {
+  const v = n ?? 0;
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(v);
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -138,10 +145,3 @@ const features = [
   { icon: Shield, title: "Anti-cheat", desc: "Fair play enforced by automated detection and a dedicated review team." },
   { icon: Zap, title: "Live updates", desc: "Real-time match leaderboards, instant notifications, and live spectator mode." },
 ];
-
-function fmt(n: number | undefined): string {
-  const v = n ?? 0;
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-  return String(v);
-}
