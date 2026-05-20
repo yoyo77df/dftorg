@@ -27,14 +27,14 @@ export const Route = createFileRoute("/wallet")({
 });
 
 const depositSchema = z.object({
-  amount: z.coerce.number().min(500, { message: "Minimum deposit is ৳500" }).max(1_000_000),
+  amount: z.coerce.number().min(50, { message: "Minimum deposit is ৳50" }).max(1_000_000),
   method: z.enum(["bKash", "Nagad", "Rocket"]),
   phone: z.string().trim().min(6).max(20),
   transaction_id: z.string().trim().min(3).max(60).optional(),
 });
 
 const withdrawSchema = z.object({
-  amount: z.coerce.number().min(200, { message: "Minimum withdraw is ৳200" }).max(1_000_000),
+  amount: z.coerce.number().min(50, { message: "Minimum withdraw is ৳50" }).max(1_000_000),
   method: z.enum(["bKash", "Nagad", "Rocket"]),
   phone: z.string().trim().min(6).max(20),
 });
@@ -168,10 +168,10 @@ function WalletPage() {
         <TabsContent value="deposit">
           <form onSubmit={handleDeposit} className="glass mt-4 space-y-3 rounded-xl p-5">
             <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-xs text-muted-foreground">
-              Send money to <span className="font-bold text-foreground">01957941250 (bKash/Nagad)</span>, then submit details below. Minimum deposit ৳500. Admin approval required.
+              Send money to <span className="font-bold text-foreground">01957941250 (bKash/Nagad)</span>, then submit details below. Minimum deposit ৳50. Admin approval required.
             </p>
             <Row>
-              <Field name="amount" type="number" label="Amount (৳)" placeholder="500" />
+              <Field name="amount" type="number" label="Amount (৳)" placeholder="50" />
               <SelectField name="method" label="Method" options={["bKash", "Nagad", "Rocket"]} />
             </Row>
             <Row>
@@ -191,7 +191,7 @@ function WalletPage() {
         <TabsContent value="withdraw">
           <form onSubmit={handleWithdraw} className="glass mt-4 space-y-3 rounded-xl p-5">
             <Row>
-              <Field name="amount" type="number" label="Amount (৳)" placeholder="200" />
+              <Field name="amount" type="number" label="Amount (৳)" placeholder="50" />
               <SelectField name="method" label="Method" options={["bKash", "Nagad", "Rocket"]} />
             </Row>
             <Field name="phone" label="Receiver phone" placeholder="01XXXXXXXXX" />
