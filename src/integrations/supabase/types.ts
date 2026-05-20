@@ -367,6 +367,10 @@ export type Database = {
         Args: { _amount: number; _note?: string; _user_id: string }
         Returns: undefined
       }
+      admin_remove_money: {
+        Args: { _amount: number; _note?: string; _user_id: string }
+        Returns: undefined
+      }
       admin_set_ban: {
         Args: { _banned: boolean; _user_id: string }
         Returns: undefined

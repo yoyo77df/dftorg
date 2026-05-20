@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,19 @@ function AdminPage() {
     enabled: isAdmin,
     queryFn: async () => {
       const { data } = await supabase.from("tournaments").select("*").order("start_time", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const { data: allTxns } = useQuery({
+    queryKey: ["admin-all-txns"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("wallet_transactions")
+        .select("id, user_id, type, amount, description, created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
       return data ?? [];
     },
   });
@@ -118,12 +131,13 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
           <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
           <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
+          <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deposits" className="mt-4 space-y-2">
@@ -157,6 +171,28 @@ function AdminPage() {
 
         <TabsContent value="users">
           <UserManager />
+        </TabsContent>
+
+        <TabsContent value="txns" className="mt-4 space-y-2">
+          {(allTxns ?? []).length === 0 && <Empty msg="No transactions yet." />}
+          {(allTxns ?? []).map((t) => {
+            const positive = Number(t.amount) >= 0;
+            return (
+              <div key={t.id} className="glass flex items-center justify-between gap-3 rounded-xl p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold capitalize">{t.type.replace(/_/g, " ")}</p>
+                  <p className="truncate text-xs text-muted-foreground">{t.description ?? "—"}</p>
+                  <code className="text-[10px] text-muted-foreground">UID: {t.user_id}</code>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={`font-bold ${positive ? "text-primary" : "text-destructive"}`}>
+                    {positive ? "+" : ""}৳{Number(t.amount).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="new">
@@ -318,6 +354,7 @@ function UserManager() {
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [prize, setPrize] = useState("");
+  const [removeAmt, setRemoveAmt] = useState("");
   const [busy, setBusy] = useState(false);
 
   const search = async () => {
@@ -353,6 +390,20 @@ function UserManager() {
     if (error) return toast.error(error.message);
     toast.success(`৳${amt} prize added`);
     setPrize("");
+    loadWallet(selected.id).then(setBal);
+    qc.invalidateQueries();
+  };
+
+  const removeMoney = async () => {
+    const amt = Number(removeAmt);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    if (!confirm(`Remove ৳${amt} from ${selected.username}'s wallet?`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_remove_money" as any, { _user_id: selected.id, _amount: amt, _note: "Admin deduction" });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(`৳${amt} removed`);
+    setRemoveAmt("");
     loadWallet(selected.id).then(setBal);
     qc.invalidateQueries();
   };
@@ -410,6 +461,14 @@ function UserManager() {
             <div className="flex gap-2">
               <Input type="number" min="1" value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="৳ amount" />
               <Button onClick={addPrize} disabled={busy} className="bg-[var(--gradient-primary)] glow-primary">Credit</Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1"><Minus className="h-3 w-3" /> Remove money</Label>
+            <div className="flex gap-2">
+              <Input type="number" min="1" value={removeAmt} onChange={(e) => setRemoveAmt(e.target.value)} placeholder="৳ amount" />
+              <Button onClick={removeMoney} disabled={busy} className="bg-[var(--gradient-primary)] glow-primary">Debit</Button>
             </div>
           </div>
 
