@@ -9,8 +9,8 @@ const firebaseConfig = {
   projectId: "dft-tournament-27a59",
   storageBucket: "dft-tournament-27a59.firebasestorage.app",
   messagingSenderId: "854378680113",
-  appId: "1:854378680113:web:594339758d61bd9cf9ea10",
-  measurementId: "G-L8FZQ6F7KN",
+  appId: "1:854378680113:web:650b7e66acb3782cf9ea10",
+  measurementId: "G-00JPCQ9W8Q",
 };
 
 let _app: FirebaseApp | null = null;
