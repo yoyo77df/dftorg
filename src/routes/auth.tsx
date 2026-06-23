@@ -2,14 +2,14 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { useFirebaseAuth, mapFirebaseError } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Sign in or Create Account — DFT ORG." },
@@ -27,27 +27,26 @@ const signupSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(6).max(72),
   username: z.string().trim().min(3).max(24),
-  country: z.string().trim().min(2).max(56),
-  gaming_uid: z.string().trim().min(3).max(40),
 });
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { currentUser, login, register, logout } = useFirebaseAuth();
   const [loading, setLoading] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: String(fd.get("email")),
-      password: String(fd.get("password")),
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Welcome back!");
-    navigate({ to: "/dashboard" });
+    try {
+      await login(String(fd.get("email")), String(fd.get("password")));
+      toast.success("Welcome back!");
+      navigate({ to: "/profile" });
+    } catch (err: any) {
+      toast.error(mapFirebaseError(err?.code));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -57,27 +56,18 @@ function AuthPage() {
       email: fd.get("email"),
       password: fd.get("password"),
       username: fd.get("username"),
-      country: fd.get("country"),
-      gaming_uid: fd.get("gaming_uid"),
     });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: {
-          username: parsed.data.username,
-          country: parsed.data.country,
-          gaming_uid: parsed.data.gaming_uid,
-        },
-      },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Account created! Welcome to DFT ORG.…");
-    navigate({ to: "/dashboard" });
+    try {
+      await register(parsed.data.email, parsed.data.password, parsed.data.username);
+      toast.success("Account created! Welcome to DFT ORG.…");
+      navigate({ to: "/profile" });
+    } catch (err: any) {
+      toast.error(mapFirebaseError(err?.code));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,16 +77,16 @@ function AuthPage() {
           <h1 className="text-2xl font-bold">Welcome to <span className="text-gradient">DFT ORG.</span></h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your gamer account.</p>
 
-          {user && (
+          {currentUser && (
             <div className="mt-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
               <span className="text-muted-foreground">
-                Signed in as <span className="font-semibold text-foreground">{user.email}</span>
+                Signed in as <span className="font-semibold text-foreground">{currentUser.email}</span>
               </span>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/dashboard" })}>
-                  Dashboard
+                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/profile" })}>
+                  Profile
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => signOut()}>
+                <Button size="sm" variant="outline" onClick={() => logout()}>
                   Sign out
                 </Button>
               </div>
@@ -124,10 +114,6 @@ function AuthPage() {
                 <Field name="username" label="Username" placeholder="proplayer123" />
                 <Field name="email" type="email" label="Gmail" />
                 <Field name="password" type="password" label="Password" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field name="country" label="Country" placeholder="Bangladesh" />
-                  <Field name="gaming_uid" label="Gaming UID" placeholder="123456789" />
-                </div>
                 <Button type="submit" disabled={loading} className="w-full bg-[var(--gradient-primary)] glow-primary">
                   {loading ? "Creating…" : "Create account"}
                 </Button>
