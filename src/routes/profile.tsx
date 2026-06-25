@@ -14,9 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "User Profile — DFT ORG." },
-      { name: "description", content: "View and edit your DFT ORG. player profile: username, country, gaming UID, and bio." },
-      { property: "og:title", content: "User Profile — DFT ORG." },
+      { title: "User Profile — FFPBL MATCH" },
+      { name: "description", content: "View and edit your FFPBL MATCH player profile: username, country, gaming UID, and bio." },
+      { property: "og:title", content: "User Profile — FFPBL MATCH" },
       { property: "og:description", content: "Manage your gamer profile, stats, and account info." },
       { property: "og:url", content: "https://dftorftour.lovable.app/profile" },
       { name: "robots", content: "noindex" },

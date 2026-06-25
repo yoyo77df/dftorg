@@ -17,9 +17,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export const Route = createFileRoute("/wallet")({
   head: () => ({
     meta: [
-      { title: "Wallet Overview — DFT ORG." },
-      { name: "description", content: "Manage your DFT ORG. wallet: deposit via bKash or Nagad, withdraw winnings, and review transaction history." },
-      { property: "og:title", content: "Wallet Overview — DFT ORG." },
+      { title: "Wallet Overview — FFPBL MATCH" },
+      { name: "description", content: "Manage your FFPBL MATCH wallet: deposit via bKash or Nagad, withdraw winnings, and review transaction history." },
+      { property: "og:title", content: "Wallet Overview — FFPBL MATCH" },
       { property: "og:description", content: "Deposit, withdraw, and track every transaction in real time." },
       { property: "og:url", content: "https://dftorftour.lovable.app/wallet" },
       { name: "robots", content: "noindex" },

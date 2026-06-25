@@ -12,10 +12,10 @@ export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Sign in or Create Account — DFT ORG." },
-      { name: "description", content: "Sign in to DFT ORG. or create your gamer account to join real-money esports tournaments." },
-      { property: "og:title", content: "Sign in or Create Account — DFT ORG." },
-      { property: "og:description", content: "Sign in or create your DFT ORG. gamer account to start competing." },
+      { title: "Sign in or Create Account — FFPBL MATCH" },
+      { name: "description", content: "Sign in to FFPBL MATCH or create your gamer account to join real-money esports tournaments." },
+      { property: "og:title", content: "Sign in or Create Account — FFPBL MATCH" },
+      { property: "og:description", content: "Sign in or create your FFPBL MATCH gamer account to start competing." },
       { property: "og:url", content: "https://dftorftour.lovable.app/auth" },
     ],
     links: [{ rel: "canonical", href: "https://dftorftour.lovable.app/auth" }],
@@ -65,7 +65,7 @@ function AuthPage() {
     setLoading(true);
     try {
       await register(parsed.data.email, parsed.data.password, parsed.data.username);
-      toast.success("Account created! Welcome to DFT ORG.…");
+      toast.success("Account created! Welcome to FFPBL MATCH…");
       await navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
@@ -78,7 +78,7 @@ function AuthPage() {
     <div className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="glass rounded-2xl p-8 neon-border">
-          <h1 className="text-2xl font-bold">Welcome to <span className="text-gradient">DFT ORG.</span></h1>
+          <h1 className="text-2xl font-bold">Welcome to <span className="text-gradient">FFPBL MATCH</span></h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your gamer account.</p>
 
           <Tabs defaultValue="signin" className="mt-6">

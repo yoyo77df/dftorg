@@ -77,14 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DFT ORG. — Premium Esports Tournament Platform" },
+      { title: "FFPBL MATCH — Premium Esports Tournament Platform" },
       { name: "description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
-      { property: "og:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
+      { property: "og:title", content: "FFPBL MATCH — Premium Esports Tournament Platform" },
       { property: "og:description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
       { property: "og:type", content: "website" },
-      { property: "og:site_name", content: "DFT ORG." },
+      { property: "og:site_name", content: "FFPBL MATCH" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "DFT ORG. — Premium Esports Tournament Platform" },
+      { name: "twitter:title", content: "FFPBL MATCH — Premium Esports Tournament Platform" },
       { name: "twitter:description", content: "Compete in Free Fire, PUBG, COD, Valorant tournaments. Win cash prizes, climb the leaderboard, join clans." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5c97f9e9-cde0-43c6-a477-cb311cfe0cfd" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5c97f9e9-cde0-43c6-a477-cb311cfe0cfd" },
@@ -105,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Organization",
-          name: "DFT ORG.",
+          name: "FFPBL MATCH",
           url: "https://dftorftour.lovable.app",
           description: "Premium esports tournament platform for Free Fire, PUBG, COD, and Valorant.",
           contactPoint: [{
@@ -122,7 +122,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
-          name: "DFT ORG.",
+          name: "FFPBL MATCH",
           url: "https://dftorftour.lovable.app",
           potentialAction: {
             "@type": "SearchAction",

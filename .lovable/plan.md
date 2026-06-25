@@ -1,5 +1,5 @@
 
-# Complete SEO Plan — DFT ORG.
+# Complete SEO Plan — FFPBL MATCH
 
 Goal: make the public pages of the tournament platform discoverable on Google, rank for gaming/tournament queries in Bangladesh, and produce clean social previews when links are shared on Facebook/WhatsApp/Messenger.
 
@@ -34,11 +34,11 @@ Templates:
 
 | Route | Title | Description |
 |---|---|---|
-| `/` | DFT ORG. — Free Fire & PUBG Tournaments in Bangladesh | Join daily Free Fire and PUBG tournaments on DFT ORG. Cash prizes, instant deposit & withdraw in BDT. |
-| `/tournaments` | Live Tournaments — DFT ORG. | Browse upcoming Free Fire and PUBG tournaments. Entry fees in BDT, real cash prizes, instant join. |
-| `/tournaments/$id` | `${name} — DFT ORG. Tournament` | `${mode} tournament with ৳${prize} prize pool. Entry ৳${fee}. Join now on DFT ORG.` |
-| `/support` | Support & Contact — DFT ORG. | Get help with deposits, withdrawals, tournaments, and account issues on DFT ORG. |
-| `/auth` / `/login` / `/register` | Sign in / Create account — DFT ORG. | Short generic descriptions. |
+| `/` | FFPBL MATCH — Free Fire & PUBG Tournaments in Bangladesh | Join daily Free Fire and PUBG tournaments on FFPBL MATCH Cash prizes, instant deposit & withdraw in BDT. |
+| `/tournaments` | Live Tournaments — FFPBL MATCH | Browse upcoming Free Fire and PUBG tournaments. Entry fees in BDT, real cash prizes, instant join. |
+| `/tournaments/$id` | `${name} — FFPBL MATCH Tournament` | `${mode} tournament with ৳${prize} prize pool. Entry ৳${fee}. Join now on FFPBL MATCH` |
+| `/support` | Support & Contact — FFPBL MATCH | Get help with deposits, withdrawals, tournaments, and account issues on FFPBL MATCH |
+| `/auth` / `/login` / `/register` | Sign in / Create account — FFPBL MATCH | Short generic descriptions. |
 
 Private routes (`/admin*`, `/dashboard`, `/profile`, `/wallet`, `/chat`) add `{ name: "robots", content: "noindex, nofollow" }`.
 
@@ -48,8 +48,8 @@ Private routes (`/admin*`, `/dashboard`, `/profile`, `/wallet`, `/chat`) add `{ 
 
 Injected via `head().scripts`:
 
-- **`__root.tsx`** — sitewide `Organization` (name "DFT ORG.", url, logo, contactPoint phone 01957941250) + `WebSite` with `SearchAction` pointing at `/tournaments`.
-- **`/tournaments/$id`** — `Event` schema with `name`, `startDate`, `eventStatus`, `eventAttendanceMode: "OnlineEventAttendanceMode"`, `location: VirtualLocation`, `offers` (entry fee, BDT, availability), `organizer: DFT ORG.` + `BreadcrumbList`.
+- **`__root.tsx`** — sitewide `Organization` (name "FFPBL MATCH", url, logo, contactPoint phone 01957941250) + `WebSite` with `SearchAction` pointing at `/tournaments`.
+- **`/tournaments/$id`** — `Event` schema with `name`, `startDate`, `eventStatus`, `eventAttendanceMode: "OnlineEventAttendanceMode"`, `location: VirtualLocation`, `offers` (entry fee, BDT, availability), `organizer: FFPBL MATCH` + `BreadcrumbList`.
 - **`/support`** — `FAQPage` if we add 3–5 common Q&As (deposit time, withdraw limit, how to join).
 - **`/`** — `ItemList` of the next 5 upcoming tournaments (pulled from Firestore loader).
 
@@ -64,7 +64,7 @@ Injected via `head().scripts`:
 
 ## 5. Open Graph image
 
-- Generate one branded OG image (1200×630): "DFT ORG. — Free Fire & PUBG Tournaments BD" with logo on dark/red theme. Used as default `og:image` on the leaf routes (NOT the root — see head-meta rule).
+- Generate one branded OG image (1200×630): "FFPBL MATCH — Free Fire & PUBG Tournaments BD" with logo on dark/red theme. Used as default `og:image` on the leaf routes (NOT the root — see head-meta rule).
 - Tournament detail pages: build a dynamic-text OG that uses the tournament name + prize. If that's out of scope for now, fall back to the static branded image.
 
 ---
@@ -102,7 +102,7 @@ After deploying:
 
 Bangladesh Free Fire / PUBG search demand is mostly long-tail Bangla + transliteration. A small content surface — outside the tournament loop — moves the needle:
 
-- `/guides/how-to-join` — "DFT ORG. e tournament kivabe join korbo" (Bangla mixed)
+- `/guides/how-to-join` — "FFPBL MATCH e tournament kivabe join korbo" (Bangla mixed)
 - `/guides/deposit-withdraw` — payment methods, timing
 - `/guides/free-fire-rules` — match rules, fair play
 - `/winners` — public list of past prize winners (rebuilds trust + UGC-style fresh content)
