@@ -9,8 +9,8 @@ import { ChatThread } from "@/components/chat-thread";
 export const Route = createFileRoute("/support")({
   head: () => ({
     meta: [
-      { title: "Support — DFT ORG." },
-      { name: "description", content: "Get help from the DFT ORG. team. Live chat with admin and find official support links." },
+      { title: "Support — FFPBL MATCH" },
+      { name: "description", content: "Get help from the FFPBL MATCH team. Live chat with admin and find official support links." },
       { name: "robots", content: "noindex" },
     ],
   }),

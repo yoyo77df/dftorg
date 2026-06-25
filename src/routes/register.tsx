@@ -11,16 +11,16 @@ export const Route = createFileRoute("/register")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Register — DFT ORG." },
+      { title: "Register — FFPBL MATCH" },
       {
         name: "description",
         content:
-          "Create your DFT ORG. account to enter Free Fire and esports tournaments, deposit funds, and start climbing the leaderboard.",
+          "Create your FFPBL MATCH account to enter Free Fire and esports tournaments, deposit funds, and start climbing the leaderboard.",
       },
-      { property: "og:title", content: "Register — DFT ORG." },
+      { property: "og:title", content: "Register — FFPBL MATCH" },
       {
         property: "og:description",
-        content: "Sign up for DFT ORG. and join cash-prize esports tournaments in minutes.",
+        content: "Sign up for FFPBL MATCH and join cash-prize esports tournaments in minutes.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -67,7 +67,7 @@ function RegisterPage() {
     <div className="container mx-auto max-w-md px-4 py-12">
       <div className="glass rounded-2xl border border-border/60 p-6">
         <h1 className="text-2xl font-bold">Create account</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Join DFT ORG. and start competing.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Join FFPBL MATCH and start competing.</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Display name</Label>

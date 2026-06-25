@@ -1,10 +1,10 @@
-# DFT ORG.
+# FFPBL MATCH
 
 > Premium esports tournament platform for Free Fire, PUBG, COD, and Valorant. Join real-money tournaments, track your rank, and cash out winnings via bKash and Nagad.
 
 ## Pages
 
-- [Home](/): Overview of DFT ORG. and featured tournaments.
+- [Home](/): Overview of FFPBL MATCH and featured tournaments.
 - [Tournaments](/tournaments): Browse live and upcoming esports tournaments.
 - [Sign in / Sign up](/auth): Create an account or log in to compete.
 

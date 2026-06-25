@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export const Route = createFileRoute("/admin/users")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Admin · Users — DFT ORG." }, { name: "robots", content: "noindex,nofollow" }] }),
+  head: () => ({ meta: [{ title: "Admin · Users — FFPBL MATCH" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: () => (
     <AdminRoute>
       <AdminUsersPage />

@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/tournaments/")({
   head: () => ({
     meta: [
-      { title: "Tournaments — DFT ORG." },
+      { title: "Tournaments — FFPBL MATCH" },
       { name: "description", content: "Browse live and upcoming esports tournaments across Free Fire, PUBG, COD, Valorant." },
-      { property: "og:title", content: "Esports Tournaments — DFT ORG." },
+      { property: "og:title", content: "Esports Tournaments — FFPBL MATCH" },
       { property: "og:description", content: "Browse live and upcoming Free Fire, PUBG, COD, and Valorant tournaments." },
       { property: "og:url", content: "https://dftorftour.lovable.app/tournaments" },
     ],
