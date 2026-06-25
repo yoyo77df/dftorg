@@ -114,6 +114,13 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }, (err) => {
           console.error("user doc snapshot error", err);
+          setUserProfile({
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName ?? (user.email ? user.email.split("@")[0] : "Player"),
+            photoURL: user.photoURL ?? null,
+            role: "user",
+          });
           setLoading(false);
         });
       } else {
