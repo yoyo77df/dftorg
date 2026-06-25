@@ -3,8 +3,11 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trophy, Users, Coins, Clock, MapPin, Award } from "lucide-react";
+import { doc, getDoc, increment, updateDoc } from "firebase/firestore";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth } from "@/context/AuthContext";
+import { getDb } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +69,7 @@ export const Route = createFileRoute("/tournaments/$id")({
 function TournamentDetail() {
   const { id } = Route.useParams();
   const { user } = useAuth();
+  const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [joining, setJoining] = useState(false);
@@ -98,10 +102,15 @@ function TournamentDetail() {
         .order("joined_at");
       const list = data ?? [];
       if (list.length === 0) return [];
-      const ids = list.map((p) => p.user_id);
-      const { data: profs } = await supabase.from("profiles")
-        .select("id, username, gaming_uid").in("id", ids);
-      const map = new Map((profs ?? []).map((p) => [p.id, p]));
+      const profiles = await Promise.all(list.map(async (p) => {
+        try {
+          const snap = await getDoc(doc(getDb(), "users", p.user_id));
+          return [p.user_id, snap.exists() ? snap.data() : null] as const;
+        } catch {
+          return [p.user_id, null] as const;
+        }
+      }));
+      const map = new Map(profiles);
       return list.map((p) => ({ ...p, profile: map.get(p.user_id) }));
     },
   });
@@ -111,15 +120,30 @@ function TournamentDetail() {
     if (!user) return navigate({ to: "/auth" });
     const fd = new FormData(e.currentTarget);
     setJoining(true);
-    const { error } = await supabase.rpc("join_tournament", {
-      _tournament_id: id,
-      _team_name: String(fd.get("team_name")).trim(),
-      _igl_name: String(fd.get("igl_name")).trim(),
-    });
-    setJoining(false);
-    if (error) return toast.error(error.message);
-    toast.success("Joined! Good luck 🔥");
-    qc.invalidateQueries();
+    try {
+      const entryFee = Number(t?.entry_fee ?? 0);
+      const balance = Number(userProfile?.balance ?? 0);
+      if (balance < entryFee) {
+        setJoining(false);
+        return toast.error("Insufficient balance");
+      }
+      const { error } = await supabase.rpc("join_tournament", {
+        _tournament_id: id,
+        _team_name: String(fd.get("team_name")).trim(),
+        _igl_name: String(fd.get("igl_name")).trim(),
+        _user_id: user.id,
+      });
+      if (error) throw error;
+      if (entryFee > 0) {
+        await updateDoc(doc(getDb(), "users", user.id), { balance: increment(-entryFee) });
+      }
+      toast.success("Joined! Good luck 🔥");
+      qc.invalidateQueries();
+    } catch (error: any) {
+      toast.error(error?.message || "Join failed");
+    } finally {
+      setJoining(false);
+    }
   };
 
   if (isLoading || !t) return <div className="container mx-auto px-4 py-12 text-center text-muted-foreground">Loading…</div>;
@@ -206,7 +230,7 @@ function TournamentDetail() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-semibold">{p.profile?.username ?? "—"}</p>
-                  <code className="text-[10px] text-muted-foreground">UID: {p.profile?.gaming_uid ?? p.user_id.slice(0, 8) + "…"}</code>
+                  <code className="text-[10px] text-muted-foreground">UID: {p.profile?.gaming_uid || p.user_id}</code>
                 </div>
               </div>
             ))}

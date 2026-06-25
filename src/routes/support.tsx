@@ -4,7 +4,7 @@ import { LifeBuoy, ExternalLink } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
-import { ChatThread } from "@/routes/admin.index";
+import { ChatThread } from "@/components/chat-thread";
 
 export const Route = createFileRoute("/support")({
   head: () => ({

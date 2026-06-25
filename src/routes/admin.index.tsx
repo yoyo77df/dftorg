@@ -1,21 +1,21 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Send, Link as LinkIcon } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useFirebaseAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, increment,
-  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where,
+  limit, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { ALL_PRESETS, FAVORITE_PRESETS, applyTheme, setPublicTheme, type ThemePreset } from "@/lib/themes";
+import { ChatThread } from "@/components/chat-thread";
 
 // applyTheme re-exported from "@/lib/themes" via import above
 
@@ -73,6 +73,7 @@ function AdminPage() {
         user_id: d.user_id, type: "deposit", amount: Number(d.amount),
         description: `${d.method} deposit approved`, created_at: serverTimestamp(), created_at_ms: Date.now(),
       });
+      await notifyUser(d.user_id, "Deposit approved", `৳${d.amount} added to your wallet`, "/wallet", "wallet");
       toast.success("Deposit approved");
     } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
@@ -89,15 +90,30 @@ function AdminPage() {
         user_id: w.user_id, type: "withdrawal", amount: -Number(w.amount),
         description: `${w.method} withdrawal to ${w.phone}`, created_at: serverTimestamp(), created_at_ms: Date.now(),
       });
+      await notifyUser(w.user_id, "Withdrawal approved", `৳${w.amount} withdrawal approved`, "/wallet", "wallet");
       toast.success("Withdrawal approved");
     } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectDeposit = async (id: string) => {
-    try { await updateDoc(doc(getDb(), "deposits", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    try {
+      const db = getDb();
+      const snap = await getDoc(doc(db, "deposits", id));
+      await updateDoc(doc(db, "deposits", id), { status: "rejected", reviewed_at: serverTimestamp() });
+      const d = snap.data() as any;
+      if (d?.user_id) await notifyUser(d.user_id, "Deposit rejected", `৳${d.amount} deposit was rejected`, "/wallet", "wallet");
+      toast.success("Rejected");
+    }
     catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectWithdrawal = async (id: string) => {
-    try { await updateDoc(doc(getDb(), "withdrawals", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    try {
+      const db = getDb();
+      const snap = await getDoc(doc(db, "withdrawals", id));
+      await updateDoc(doc(db, "withdrawals", id), { status: "rejected", reviewed_at: serverTimestamp() });
+      const w = snap.data() as any;
+      if (w?.user_id) await notifyUser(w.user_id, "Withdrawal rejected", `৳${w.amount} withdrawal was rejected`, "/wallet", "wallet");
+      toast.success("Rejected");
+    }
     catch (e: any) { toast.error(e?.message || "Failed"); }
   };
 
@@ -393,24 +409,14 @@ function PlayersDirectory() {
 
   useEffect(() => {
     const db = getDb();
-    let unsub: (() => void) | null = null;
-    try {
-      const qref = query(collection(db, "users"), orderBy("createdAt", "desc"));
-      unsub = onSnapshot(qref, (snap) => {
-        setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, () => {
-        // fallback if no createdAt index
-        const qref2 = collection(db, "users");
-        unsub = onSnapshot(qref2, (snap) => {
-          setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-          setLoading(false);
-        });
-      });
-    } catch {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc));
       setLoading(false);
-    }
-    return () => { if (unsub) unsub(); };
+    }, (err) => {
+      toast.error(err?.message || "Failed to load users");
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
 
   const filtered = players.filter((p) => {
@@ -439,7 +445,23 @@ function PlayersDirectory() {
     if (!delta) return toast.error("Enter an amount");
     if (delta < 0 && !confirm(`Remove ৳${Math.abs(delta)} from ${name}?`)) return;
     try {
-      await updateDoc(doc(getDb(), "users", uid), { balance: increment(delta) });
+      const db = getDb();
+      await setDoc(doc(db, "users", uid), { balance: increment(delta) }, { merge: true });
+      await addDoc(collection(db, "wallet_transactions"), {
+        user_id: uid,
+        type: delta > 0 ? "admin_credit" : "admin_debit",
+        amount: delta,
+        description: delta > 0 ? `Admin added ৳${delta}` : `Admin removed ৳${Math.abs(delta)}`,
+        created_at: serverTimestamp(),
+        created_at_ms: Date.now(),
+      });
+      await notifyUser(
+        uid,
+        delta > 0 ? "Money added" : "Money removed",
+        delta > 0 ? `Admin added ৳${delta} to your wallet` : `Admin removed ৳${Math.abs(delta)} from your wallet`,
+        "/wallet",
+        "wallet",
+      );
       toast.success(delta > 0 ? `+৳${delta} credited` : `-৳${Math.abs(delta)} debited`);
       setAmounts((a) => ({ ...a, [uid]: "" }));
     } catch (e: any) {
@@ -527,6 +549,22 @@ function byCreatedAsc(a: any, b: any) {
 function fmtWhen(v: any): string {
   const ms = tsMs(v);
   return ms ? new Date(ms).toLocaleString() : "—";
+}
+
+async function notifyUser(userId: string, title: string, body: string, link: string, type: string) {
+  try {
+    await addDoc(collection(getDb(), "notifications"), {
+      user_id: userId,
+      title,
+      body,
+      link,
+      type,
+      created_at: serverTimestamp(),
+      created_at_ms: Date.now(),
+    });
+  } catch {
+    // Notification failure should never block admin actions.
+  }
 }
 
 /* ---------- Theme Manager (public, broadcast to all users) ---------- */
@@ -768,103 +806,3 @@ function ThreadList({
   );
 }
 
-/* ---------- Shared chat thread component ---------- */
-
-export function ChatThread({
-  uid, kind, asAdmin,
-}: { uid: string; kind: "support" | "chat"; asAdmin?: boolean }) {
-  const { user } = useAuth();
-  const { userProfile } = useFirebaseAuth();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  const messagesCol = kind === "support" ? "support_messages" : "chat_messages";
-  const threadsCol = kind === "support" ? "support_threads" : "chat_threads";
-
-  useEffect(() => {
-    if (!uid) return;
-    const db = getDb();
-    const q = query(collection(db, messagesCol, uid, "messages"), orderBy("created_at_ms", "asc"), limit(200));
-    const unsub = onSnapshot(q, (s) => {
-      setMessages(s.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    });
-    return () => unsub();
-  }, [uid, messagesCol]);
-
-  const send = async () => {
-    if (!text.trim() || !user) return;
-    setSending(true);
-    try {
-      const db = getDb();
-      const now = Date.now();
-      const fromAdmin = !!asAdmin;
-      const senderName = userProfile?.username || userProfile?.name || user.email || "User";
-      const senderUid = user.id;
-      const body = text.trim();
-      await addDoc(collection(db, messagesCol, uid, "messages"), {
-        text: body,
-        from_admin: fromAdmin,
-        sender_uid: senderUid,
-        sender_name: senderName,
-        created_at: serverTimestamp(),
-        created_at_ms: now,
-      });
-      // upsert thread metadata
-      await setDoc(
-        doc(db, threadsCol, uid),
-        {
-          user_id: uid,
-          username: fromAdmin ? undefined : senderName,
-          last_message: body,
-          last_from_admin: fromAdmin,
-          updated_at: serverTimestamp(),
-          created_at_ms: now,
-        },
-        { merge: true },
-      );
-      setText("");
-    } catch (e: any) {
-      toast.error(e?.message || "Send failed");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-1 flex-col gap-3">
-      <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-border/40 bg-background/40 p-3 max-h-[55vh]">
-        {messages.length === 0 && <p className="text-center text-xs text-muted-foreground">No messages yet. Say hi 👋</p>}
-        {messages.map((m) => {
-          const mine = asAdmin ? m.from_admin : !m.from_admin;
-          return (
-            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${mine ? "bg-[var(--gradient-primary)] text-primary-foreground" : "bg-secondary text-foreground"}`}>
-                <p className="text-[10px] opacity-80">
-                  {m.from_admin ? "Admin" : (m.sender_name || "User")}
-                  {!m.from_admin && asAdmin && <span className="ml-1 opacity-70">· UID {m.sender_uid?.slice(0, 8)}</span>}
-                </p>
-                <p className="whitespace-pre-wrap break-words text-sm">{m.text}</p>
-                <p className="text-[9px] opacity-60">{fmtWhen(m.created_at_ms || m.created_at)}</p>
-              </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </div>
-      <div className="flex gap-2">
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={asAdmin ? "Reply as admin…" : "Type your message…"}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-        />
-        <Button onClick={send} disabled={sending || !text.trim()} className="bg-[var(--gradient-primary)] glow-primary">
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}

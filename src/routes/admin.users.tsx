@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Users, Search, ArrowLeft } from "lucide-react";
-import { collection, doc, onSnapshot, updateDoc, query, orderBy } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { AdminRoute } from "@/components/AdminRoute";
 import { useFirebaseAuth, type Role } from "@/context/AuthContext";
@@ -35,12 +35,11 @@ function AdminUsersPage() {
 
   useEffect(() => {
     const db = getDb();
-    const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
       const rows: UserRow[] = snap.docs.map((d) => {
         const data = d.data() as any;
         return { uid: d.id, email: data.email ?? null, name: data.name ?? null, role: (data.role as Role) ?? "user" };
-      });
+      }).sort((a, b) => a.uid.localeCompare(b.uid));
       setUsers(rows);
     }, (err) => {
       console.error(err);
