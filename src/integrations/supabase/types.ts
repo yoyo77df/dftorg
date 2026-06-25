@@ -388,12 +388,7 @@ export type Database = {
         Returns: boolean
       }
       join_tournament: {
-        Args: {
-          _igl_name: string
-          _team_name: string
-          _tournament_id: string
-          _user_id: string
-        }
+        Args: { _igl_name: string; _team_name: string; _tournament_id: string }
         Returns: Json
       }
       notify: {
