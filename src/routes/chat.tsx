@@ -8,8 +8,8 @@ import { ChatThread } from "@/components/chat-thread";
 export const Route = createFileRoute("/chat")({
   head: () => ({
     meta: [
-      { title: "Chat — FFPBL MATCH" },
-      { name: "description", content: "Direct chat with the FFPBL MATCH team. Your messages are private." },
+      { title: "Chat — FFBPL MATCH" },
+      { name: "description", content: "Direct chat with the FFBPL MATCH team. Your messages are private." },
       { name: "robots", content: "noindex" },
     ],
   }),

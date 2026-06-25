@@ -9,9 +9,9 @@ import { useFirebaseAuth } from "@/context/AuthContext";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Player Dashboard — FFPBL MATCH" },
-      { name: "description", content: "Your FFPBL MATCH player dashboard: rank, XP, wallet balance, and upcoming tournaments at a glance." },
-      { property: "og:title", content: "Player Dashboard — FFPBL MATCH" },
+      { title: "Player Dashboard — FFBPL MATCH" },
+      { name: "description", content: "Your FFBPL MATCH player dashboard: rank, XP, wallet balance, and upcoming tournaments at a glance." },
+      { property: "og:title", content: "Player Dashboard — FFBPL MATCH" },
       { property: "og:description", content: "Your stats, wallet, and upcoming battles in one place." },
       { property: "og:url", content: "https://dftorftour.lovable.app/dashboard" },
       { name: "robots", content: "noindex" },

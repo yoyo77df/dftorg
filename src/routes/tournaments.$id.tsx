@@ -42,10 +42,10 @@ export const Route = createFileRoute("/tournaments/$id")({
   head: ({ params, loaderData }) => {
     const url = `https://dftorftour.lovable.app/tournaments/${params.id}`;
     const t = loaderData?.tournament;
-    const title = t?.name ? `${t.name} — FFPBL MATCH Tournament` : "Tournament — FFPBL MATCH";
+    const title = t?.name ? `${t.name} — FFBPL MATCH Tournament` : "Tournament — FFBPL MATCH";
     const desc = t
-      ? `${t.game ?? "Esports"} ${t.mode ?? ""} tournament with ৳${t.prize_pool} prize pool. Entry ৳${t.entry_fee}. Join now on FFPBL MATCH`.trim()
-      : "Esports tournament details on FFPBL MATCH — view schedule, prize pool, entry fee, room credentials, and join the next match from your dashboard.";
+      ? `${t.game ?? "Esports"} ${t.mode ?? ""} tournament with ৳${t.prize_pool} prize pool. Entry ৳${t.entry_fee}. Join now on FFBPL MATCH`.trim()
+      : "Esports tournament details on FFBPL MATCH — view schedule, prize pool, entry fee, room credentials, and join the next match from your dashboard.";
     const scripts: Array<{ type: string; children: string }> = [];
     if (t) {
       scripts.push({
@@ -66,7 +66,7 @@ export const Route = createFileRoute("/tournaments/$id")({
           },
           organizer: {
             "@type": "Organization",
-            name: "FFPBL MATCH",
+            name: "FFBPL MATCH",
             url: "https://dftorftour.lovable.app",
           },
           offers: {

@@ -20,8 +20,8 @@ import { ChatThread } from "@/components/chat-thread";
 export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [
-      { title: "Admin Console — FFPBL MATCH" },
-      { name: "description", content: "FFPBL MATCH admin console for managing tournaments, deposits, withdrawals, and users." },
+      { title: "Admin Console — FFBPL MATCH" },
+      { name: "description", content: "FFBPL MATCH admin console for managing tournaments, deposits, withdrawals, and users." },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -709,7 +709,7 @@ function ThemeCard({
             border: `1px solid ${swatch[2]}`,
           }}
         >
-          <span style={{ color: swatch[2], fontWeight: 700 }}>FFPBL MATCH</span> sample card
+          <span style={{ color: swatch[2], fontWeight: 700 }}>FFBPL MATCH</span> sample card
         </div>
       )}
     </button>

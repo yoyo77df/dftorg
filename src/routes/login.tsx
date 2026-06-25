@@ -11,16 +11,16 @@ export const Route = createFileRoute("/login")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Login — FFPBL MATCH" },
+      { title: "Login — FFBPL MATCH" },
       {
         name: "description",
         content:
-          "Sign in to your FFPBL MATCH account to join esports tournaments, manage your wallet, and track your stats and rank.",
+          "Sign in to your FFBPL MATCH account to join esports tournaments, manage your wallet, and track your stats and rank.",
       },
-      { property: "og:title", content: "Login — FFPBL MATCH" },
+      { property: "og:title", content: "Login — FFBPL MATCH" },
       {
         property: "og:description",
-        content: "Access your FFPBL MATCH player dashboard, wallet, and tournament entries.",
+        content: "Access your FFBPL MATCH player dashboard, wallet, and tournament entries.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -66,7 +66,7 @@ function LoginPage() {
     <div className="container mx-auto max-w-md px-4 py-12">
       <div className="glass rounded-2xl border border-border/60 p-6">
         <h1 className="text-2xl font-bold">Sign in</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Welcome back to FFPBL MATCH</p>
+        <p className="mt-1 text-sm text-muted-foreground">Welcome back to FFBPL MATCH</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

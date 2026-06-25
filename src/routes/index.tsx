@@ -16,9 +16,9 @@ function fmt(n: number | undefined): string {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Compete in Real-Money Esports Tournaments — FFPBL MATCH" },
-      { name: "description", content: "Join real-money Free Fire, PUBG, COD, and Valorant tournaments on FFPBL MATCH Track your rank, build your clan, and cash out wins." },
-      { property: "og:title", content: "Compete in Real-Money Esports Tournaments — FFPBL MATCH" },
+      { title: "Compete in Real-Money Esports Tournaments — FFBPL MATCH" },
+      { name: "description", content: "Join real-money Free Fire, PUBG, COD, and Valorant tournaments on FFBPL MATCH Track your rank, build your clan, and cash out wins." },
+      { property: "og:title", content: "Compete in Real-Money Esports Tournaments — FFBPL MATCH" },
       { property: "og:description", content: "Real-money esports tournaments across mobile games. Win, rank up, and cash out." },
       { property: "og:url", content: "https://dftorftour.lovable.app/" },
     ],
@@ -72,7 +72,7 @@ function Index() {
         <div className="container mx-auto px-4 py-24 md:py-32">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-xs uppercase tracking-widest text-muted-foreground">
-              <Zap className="h-3 w-3 text-accent" /> Live esports — FFPBL MATCH
+              <Zap className="h-3 w-3 text-accent" /> Live esports — FFBPL MATCH
             </div>
             <h1 className="text-5xl font-extrabold tracking-tight md:text-7xl">
               Compete in <span className="text-gradient">Real-Money</span> Esports Tournaments
@@ -106,7 +106,7 @@ function Index() {
 
       {/* Features */}
       <section className="container mx-auto px-4 py-20">
-        <h2 className="mb-8 text-center text-3xl font-bold tracking-tight">Why FFPBL MATCH</h2>
+        <h2 className="mb-8 text-center text-3xl font-bold tracking-tight">Why FFBPL MATCH</h2>
         <div className="grid gap-6 md:grid-cols-3">
           {features.map((f) => (
             <div key={f.title} className="glass group rounded-2xl p-6 transition-all hover:-translate-y-1 hover:glow-primary">

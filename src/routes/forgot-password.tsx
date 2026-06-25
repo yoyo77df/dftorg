@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/forgot-password")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Forgot Password — FFPBL MATCH" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Forgot Password — FFBPL MATCH" }, { name: "robots", content: "noindex" }] }),
   component: ForgotPasswordPage,
 });
 
