@@ -340,18 +340,35 @@ function Sel({ name, label, options }: { name: string; label: string; options: s
 
 function TournamentRow({ t }: { t: any }) {
   const [open, setOpen] = useState(false);
-  const [roomId, setRoomId] = useState(t.room_id ?? "");
-  const [pwd, setPwd] = useState(t.room_password ?? "");
+  const [roomId, setRoomId] = useState("");
+  const [pwd, setPwd] = useState("");
   const [status, setStatus] = useState(t.status);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getDoc(doc(getDb(), "tournament_secrets", t.id)).then((s) => {
+      if (cancelled) return;
+      const d = s.data() as any;
+      setRoomId(d?.room_id ?? "");
+      setPwd(d?.room_password ?? "");
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, t.id]);
 
   const save = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(getDb(), "tournaments", t.id), {
+      const db = getDb();
+      await setDoc(doc(db, "tournament_secrets", t.id), {
         room_id: roomId || null,
         room_password: pwd || null,
+        updated_at: serverTimestamp(),
+      }, { merge: true });
+      await updateDoc(doc(getDb(), "tournaments", t.id), {
         status,
+        has_room: !!(roomId && pwd),
         updated_at: serverTimestamp(),
       });
       toast.success("Updated — visible to joined players");
