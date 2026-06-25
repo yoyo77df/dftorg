@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useFirebaseAuth, mapFirebaseError } from "@/context/AuthContext";
@@ -31,8 +31,12 @@ const signupSchema = z.object({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { currentUser, login, register, logout } = useFirebaseAuth();
+  const { currentUser, login, register } = useFirebaseAuth();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) navigate({ to: "/dashboard", replace: true });
+  }, [currentUser, navigate]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -76,22 +80,6 @@ function AuthPage() {
         <div className="glass rounded-2xl p-8 neon-border">
           <h1 className="text-2xl font-bold">Welcome to <span className="text-gradient">DFT ORG.</span></h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in or create your gamer account.</p>
-
-          {currentUser && (
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">
-                Signed in as <span className="font-semibold text-foreground">{currentUser.email}</span>
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/dashboard" })}>
-                  Dashboard
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => logout()}>
-                  Sign out
-                </Button>
-              </div>
-            </div>
-          )}
 
           <Tabs defaultValue="signin" className="mt-6">
             <TabsList className="grid w-full grid-cols-2">
