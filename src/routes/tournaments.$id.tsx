@@ -45,7 +45,7 @@ export const Route = createFileRoute("/tournaments/$id")({
     const title = t?.name ? `${t.name} — DFT ORG. Tournament` : "Tournament — DFT ORG.";
     const desc = t
       ? `${t.game ?? "Esports"} ${t.mode ?? ""} tournament with ৳${t.prize_pool} prize pool. Entry ৳${t.entry_fee}. Join now on DFT ORG.`.trim()
-      : "Esports tournament details on DFT ORG.";
+      : "Esports tournament details on DFT ORG. — view schedule, prize pool, entry fee, room credentials, and join the next match from your dashboard.";
     const scripts: Array<{ type: string; children: string }> = [];
     if (t) {
       scripts.push({
