@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, increment,
-  limit, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where,
+  limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { ALL_PRESETS, FAVORITE_PRESETS, applyTheme, setPublicTheme, type ThemePreset } from "@/lib/themes";
@@ -58,10 +58,17 @@ function AdminPage() {
   const approveDeposit = async (d: any) => {
     try {
       const db = getDb();
-      await updateDoc(doc(db, "users", d.user_id), { balance: increment(Number(d.amount)) });
-      await updateDoc(doc(db, "deposits", d.id), { status: "approved", reviewed_at: serverTimestamp() });
+      const amt = Number(d.amount);
+      await runTransaction(db, async (tx) => {
+        const depRef = doc(db, "deposits", d.id);
+        const depSnap = await tx.get(depRef);
+        if (!depSnap.exists()) throw new Error("Deposit not found");
+        if ((depSnap.data() as any).status !== "pending") throw new Error("Already processed");
+        tx.update(doc(db, "users", d.user_id), { balance: increment(amt) });
+        tx.update(depRef, { status: "approved", reviewed_at: serverTimestamp() });
+      });
       await addDoc(collection(db, "wallet_transactions"), {
-        user_id: d.user_id, type: "deposit", amount: Number(d.amount),
+        user_id: d.user_id, type: "deposit", amount: amt,
         description: `${d.method} deposit approved`, created_at: serverTimestamp(), created_at_ms: Date.now(),
       });
       await notifyUser(d.user_id, "Deposit approved", `৳${d.amount} added to your wallet`, "/wallet", "wallet");
@@ -71,14 +78,21 @@ function AdminPage() {
   const approveWithdrawal = async (w: any) => {
     try {
       const db = getDb();
+      const amt = Number(w.amount);
       const uref = doc(db, "users", w.user_id);
-      const snap = await getDoc(uref);
-      const bal = Number((snap.data() as any)?.balance ?? 0);
-      if (bal < Number(w.amount)) return toast.error("User has insufficient balance");
-      await updateDoc(uref, { balance: increment(-Number(w.amount)) });
-      await updateDoc(doc(db, "withdrawals", w.id), { status: "approved", reviewed_at: serverTimestamp() });
+      const wref = doc(db, "withdrawals", w.id);
+      await runTransaction(db, async (tx) => {
+        const wSnap = await tx.get(wref);
+        if (!wSnap.exists()) throw new Error("Withdrawal not found");
+        if ((wSnap.data() as any).status !== "pending") throw new Error("Already processed");
+        const uSnap = await tx.get(uref);
+        const bal = Number((uSnap.data() as any)?.balance ?? 0);
+        if (bal < amt) throw new Error("User has insufficient balance");
+        tx.update(uref, { balance: increment(-amt) });
+        tx.update(wref, { status: "approved", reviewed_at: serverTimestamp() });
+      });
       await addDoc(collection(db, "wallet_transactions"), {
-        user_id: w.user_id, type: "withdrawal", amount: -Number(w.amount),
+        user_id: w.user_id, type: "withdrawal", amount: -amt,
         description: `${w.method} withdrawal to ${w.phone}`, created_at: serverTimestamp(), created_at_ms: Date.now(),
       });
       await notifyUser(w.user_id, "Withdrawal approved", `৳${w.amount} withdrawal approved`, "/wallet", "wallet");
