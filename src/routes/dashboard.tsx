@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Trophy, Wallet, User as UserIcon, Shield, Zap, Target, Award, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth } from "@/context/AuthContext";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -22,29 +23,12 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
   const { user, isAdmin, loading } = useAuth();
+  const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth" });
-  }, [user, loading, navigate]);
-
-  const { data: profile } = useQuery({
-    queryKey: ["profile", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
-      return data;
-    },
-  });
-
-  const { data: wallet } = useQuery({
-    queryKey: ["wallet", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("wallets").select("*").eq("user_id", user!.id).single();
-      return data;
-    },
-  });
+    if (!loading && !user) navigate({ to: "/auth", replace: true });
+  }, [loading, user, navigate]);
 
   const { data: tournaments } = useQuery({
     queryKey: ["dashboard-tournaments"],
@@ -59,7 +43,16 @@ function DashboardPage() {
     },
   });
 
-  if (!user) return null;
+  if (loading) {
+    return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Loading dashboard…</div>;
+  }
+
+  if (!user) {
+    return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Redirecting to sign in…</div>;
+  }
+
+  const profile = userProfile;
+  const balance = Number(profile?.balance ?? 0);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -69,12 +62,12 @@ function DashboardPage() {
           <div>
             <h1 className="text-3xl font-bold">Player Dashboard</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Welcome back, <span className="text-gradient font-semibold">{profile?.username ?? "Player"}</span> — Rank: {profile?.rank ?? "Bronze"} · XP {profile?.xp ?? 0}
+              Welcome back, <span className="text-gradient font-semibold">{profile?.username ?? profile?.name ?? user.displayName ?? "Player"}</span> — Rank: {profile?.rank ?? "Rookie"} · XP {profile?.xp ?? 0}
             </p>
           </div>
           <div className="rounded-xl bg-[var(--gradient-primary)] px-5 py-3 glow-primary">
             <p className="text-[10px] uppercase tracking-widest text-primary-foreground/80">Wallet</p>
-            <p className="text-2xl font-bold text-primary-foreground">৳ {Number(wallet?.balance ?? 0).toFixed(0)}</p>
+            <p className="text-2xl font-bold text-primary-foreground">৳ {balance.toFixed(0)}</p>
           </div>
         </div>
       </div>

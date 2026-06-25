@@ -10,7 +10,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const user = currentUser ?? fbUser;
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login" });
+    if (!loading && !user) navigate({ to: "/auth", replace: true });
   }, [loading, user, navigate]);
 
   if (loading || !user) {
