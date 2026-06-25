@@ -9,7 +9,22 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Login — DFT ORG." }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [
+      { title: "Login — DFT ORG." },
+      {
+        name: "description",
+        content:
+          "Sign in to your DFT ORG. account to join esports tournaments, manage your wallet, and track your stats and rank.",
+      },
+      { property: "og:title", content: "Login — DFT ORG." },
+      {
+        property: "og:description",
+        content: "Access your DFT ORG. player dashboard, wallet, and tournament entries.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: LoginPage,
 });
 
