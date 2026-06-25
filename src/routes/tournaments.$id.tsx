@@ -1,10 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trophy, Users, Coins, Clock, MapPin, Award } from "lucide-react";
-import { doc, getDoc, increment, updateDoc } from "firebase/firestore";
-import { supabase } from "@/integrations/supabase/client";
+import { collection, doc, getDoc, increment, onSnapshot, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth } from "@/context/AuthContext";
 import { getDb } from "@/lib/firebase";
@@ -13,21 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/tournaments/$id")({
-  loader: async ({ params }) => {
-    const { data } = await supabase
-      .from("tournaments")
-      .select("id, title, game, mode, description, start_time, entry_fee, prize_pool")
-      .eq("id", params.id)
-      .maybeSingle();
-    return { tournament: data };
-  },
-  head: ({ params, loaderData }) => {
-    const t = loaderData?.tournament;
+  ssr: false,
+  head: ({ params }) => {
     const url = `https://dftorftour.lovable.app/tournaments/${params.id}`;
-    const title = t ? `${t.title} — DFT ORG.` : "Tournament — DFT ORG.";
-    const desc = t
-      ? `${t.game} ${t.mode} tournament. Prize pool ৳${Number(t.prize_pool).toLocaleString()}, entry ৳${Number(t.entry_fee).toLocaleString()}. Join on DFT ORG.`
-      : "Esports tournament details on DFT ORG.";
+    const title = "Tournament — DFT ORG.";
+    const desc = "Esports tournament details on DFT ORG.";
     return {
       meta: [
         { title },
@@ -38,29 +26,6 @@ export const Route = createFileRoute("/tournaments/$id")({
         { property: "og:url", content: url },
       ],
       links: [{ rel: "canonical", href: url }],
-      scripts: t
-        ? [{
-            type: "application/ld+json",
-            children: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Event",
-              name: t.title,
-              description: t.description ?? desc,
-              startDate: t.start_time,
-              eventStatus: "https://schema.org/EventScheduled",
-              eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
-              location: { "@type": "VirtualLocation", url },
-              offers: {
-                "@type": "Offer",
-                price: Number(t.entry_fee),
-                priceCurrency: "BDT",
-                url,
-                availability: "https://schema.org/InStock",
-              },
-              organizer: { "@type": "Organization", name: "DFT ORG.", url: "https://dftorftour.lovable.app" },
-            }),
-          }]
-        : [],
     };
   },
   component: TournamentDetail,
@@ -71,49 +36,48 @@ function TournamentDetail() {
   const { user } = useAuth();
   const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [joining, setJoining] = useState(false);
+  const [t, setTournament] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [joined, setJoined] = useState(false);
+  const [participants, setParticipants] = useState<any[]>([]);
 
-  const { data: t, isLoading } = useQuery({
-    queryKey: ["tournament", id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("tournaments").select("*").eq("id", id).single();
-      if (error) throw error;
-      return data;
-    },
-  });
+  useEffect(() => {
+    const unsub = onSnapshot(doc(getDb(), "tournaments", id), (snap) => {
+      setTournament(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      setIsLoading(false);
+    }, () => setIsLoading(false));
+    return () => unsub();
+  }, [id]);
 
-  const { data: joined } = useQuery({
-    queryKey: ["joined", id, user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("tournament_participants")
-        .select("id").eq("tournament_id", id).eq("user_id", user!.id).maybeSingle();
-      return !!data;
-    },
-  });
-
-  const { data: participants } = useQuery({
-    queryKey: ["participants", id],
-    queryFn: async () => {
-      const { data } = await supabase.from("tournament_participants")
-        .select("id, team_name, igl_name, user_id, joined_at")
-        .eq("tournament_id", id)
-        .order("joined_at");
-      const list = data ?? [];
-      if (list.length === 0) return [];
-      const profiles = await Promise.all(list.map(async (p) => {
+  useEffect(() => {
+    const q = query(collection(getDb(), "tournament_participants"), where("tournament_id", "==", id));
+    const unsub = onSnapshot(q, async (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const profiles = await Promise.all(list.map(async (p: any) => {
         try {
-          const snap = await getDoc(doc(getDb(), "users", p.user_id));
-          return [p.user_id, snap.exists() ? snap.data() : null] as const;
+          const ps = await getDoc(doc(getDb(), "users", p.user_id));
+          return [p.user_id, ps.exists() ? ps.data() : null] as const;
         } catch {
           return [p.user_id, null] as const;
         }
       }));
-      const map = new Map(profiles);
-      return list.map((p) => ({ ...p, profile: map.get(p.user_id) }));
-    },
-  });
+      const profileMap = new Map(profiles);
+      setParticipants(list
+        .map((p: any) => ({ ...p, profile: profileMap.get(p.user_id) }))
+        .sort((a, b) => tsMs(a.joined_at_ms ?? a.joined_at) - tsMs(b.joined_at_ms ?? b.joined_at)));
+    });
+    return () => unsub();
+  }, [id]);
+
+  useEffect(() => {
+    if (!user) {
+      setJoined(false);
+      return;
+    }
+    const unsub = onSnapshot(doc(getDb(), "tournament_participants", `${id}_${user.id}`), (snap) => setJoined(snap.exists()));
+    return () => unsub();
+  }, [id, user]);
 
   const handleJoin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -127,18 +91,35 @@ function TournamentDetail() {
         setJoining(false);
         return toast.error("Insufficient balance");
       }
-      const { error } = await supabase.rpc("join_tournament", {
-        _tournament_id: id,
-        _team_name: String(fd.get("team_name")).trim(),
-        _igl_name: String(fd.get("igl_name")).trim(),
-        _user_id: user.id,
+      const teamName = String(fd.get("team_name") || "").trim();
+      const iglName = String(fd.get("igl_name") || "").trim();
+      const db = getDb();
+      await runTransaction(db, async (tx) => {
+        const tRef = doc(db, "tournaments", id);
+        const uRef = doc(db, "users", user.id);
+        const pRef = doc(db, "tournament_participants", `${id}_${user.id}`);
+        const [tSnap, uSnap, pSnap] = await Promise.all([tx.get(tRef), tx.get(uRef), tx.get(pRef)]);
+        if (!tSnap.exists()) throw new Error("Tournament not found");
+        if (pSnap.exists()) throw new Error("Already joined");
+        const tournament = tSnap.data() as any;
+        const currentSlots = Number(tournament.joined_slots ?? 0);
+        const totalSlots = Number(tournament.total_slots ?? 0);
+        if (totalSlots > 0 && currentSlots >= totalSlots) throw new Error("Tournament is full");
+        const latestFee = Number(tournament.entry_fee ?? entryFee);
+        const latestBalance = Number((uSnap.data() as any)?.balance ?? balance);
+        if (latestBalance < latestFee) throw new Error("Insufficient balance");
+        tx.set(pRef, {
+          tournament_id: id,
+          user_id: user.id,
+          team_name: teamName,
+          igl_name: iglName,
+          joined_at: serverTimestamp(),
+          joined_at_ms: Date.now(),
+        });
+        tx.update(tRef, { joined_slots: increment(1), updated_at: serverTimestamp() });
+        if (latestFee > 0) tx.update(uRef, { balance: increment(-latestFee) });
       });
-      if (error) throw error;
-      if (entryFee > 0) {
-        await updateDoc(doc(getDb(), "users", user.id), { balance: increment(-entryFee) });
-      }
       toast.success("Joined! Good luck 🔥");
-      qc.invalidateQueries();
     } catch (error: any) {
       toast.error(error?.message || "Join failed");
     } finally {
@@ -319,4 +300,13 @@ function Countdown({ target }: { target: string }) {
       ))}
     </div>
   );
+}
+
+function tsMs(v: any): number {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v?.toMillis === "function") return v.toMillis();
+  if (typeof v?.seconds === "number") return v.seconds * 1000;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
 }
