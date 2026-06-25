@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth } from "@/context/AuthContext";
-import { ChatThread } from "@/routes/admin.index";
+import { ChatThread } from "@/components/chat-thread";
 
 export const Route = createFileRoute("/chat")({
   head: () => ({

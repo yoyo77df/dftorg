@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { Bell, Check } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,8 @@ type Notif = {
   body: string | null;
   link: string | null;
   type: string;
-  created_at: string;
+  created_at?: string;
+  created_at_ms?: number;
   read_at: string | null;
 };
 
@@ -35,83 +37,42 @@ export function NotificationsBell() {
       : 0,
   );
 
-  // Ask for browser notification permission once
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-  }, []);
-
-  // Load existing + subscribe
+  // Firestore notifications: no browser permission prompt, no UUID mismatch.
   useEffect(() => {
     if (!user) {
       setItems([]);
       return;
     }
-    let cancelled = false;
-
-    (async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .or(`user_id.is.null,user_id.eq.${user.id}`)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (!cancelled && data) setItems(data as Notif[]);
-    })();
-
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications" },
-        (payload) => {
-          const n = payload.new as Notif;
-          if (n.user_id && n.user_id !== user.id) return;
-          setItems((prev) => [n, ...prev].slice(0, 30));
-          // In-app toast
-          toast(n.title, {
-            description: n.body ?? undefined,
-            action: n.link
-              ? {
-                  label: "View",
-                  onClick: () => navigate({ to: n.link! }),
-                }
-              : undefined,
-          });
-          // Native browser/mobile notification
-          if (
-            typeof window !== "undefined" &&
-            "Notification" in window &&
-            Notification.permission === "granted" &&
-            document.visibilityState !== "visible"
-          ) {
-            try {
-              const native = new Notification(n.title, {
-                body: n.body ?? "",
-                icon: "/favicon.ico",
-                tag: n.id,
-              });
-              native.onclick = () => {
-                window.focus();
-                if (n.link) navigate({ to: n.link });
-              };
-            } catch {}
+    const q = query(collection(getDb(), "notifications"), where("user_id", "in", [user.id, "all"]), limit(30));
+    const unsub = onSnapshot(q, (snap) => {
+      const next = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Notif)
+        .sort((a, b) => notifMs(b) - notifMs(a));
+      setItems((prev) => {
+        const previousIds = new Set(prev.map((n) => n.id));
+        next.forEach((n) => {
+          if (!previousIds.has(n.id) && notifMs(n) > seenAtRef.current) {
+            toast(n.title, {
+              description: n.body ?? undefined,
+              action: n.link
+                ? {
+                    label: "View",
+                    onClick: () => navigate({ to: n.link as any }),
+                  }
+                : undefined,
+            });
           }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
+        });
+        return next;
+      });
+    }, () => {
+      setItems([]);
+    });
+    return () => unsub();
   }, [user, navigate]);
 
   const unread = items.filter(
-    (n) => new Date(n.created_at).getTime() > seenAtRef.current,
+    (n) => notifMs(n) > seenAtRef.current,
   ).length;
 
   const markAllSeen = () => {
@@ -162,7 +123,7 @@ export function NotificationsBell() {
                 key={n.id}
                 onClick={() => {
                   setOpen(false);
-                  if (n.link) navigate({ to: n.link });
+                  if (n.link) navigate({ to: n.link as any });
                 }}
                 className="block w-full border-b border-border/40 p-3 text-left text-sm transition hover:bg-secondary/50"
               >
@@ -171,7 +132,7 @@ export function NotificationsBell() {
                   <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{n.body}</p>
                 )}
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  {timeAgo(n.created_at)}
+                  {timeAgo(notifMs(n))}
                 </p>
               </button>
             ))
@@ -182,8 +143,14 @@ export function NotificationsBell() {
   );
 }
 
-function timeAgo(iso: string) {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+function notifMs(n: Notif) {
+  if (typeof n.created_at_ms === "number") return n.created_at_ms;
+  if (n.created_at) return new Date(n.created_at).getTime();
+  return 0;
+}
+
+function timeAgo(ms: number) {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
