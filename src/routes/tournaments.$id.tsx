@@ -12,10 +12,86 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/tournaments/$id")({
   ssr: false,
-  head: ({ params }) => {
+  loader: async ({ params }) => {
+    try {
+      const res = await fetch(
+        `https://firestore.googleapis.com/v1/projects/dft-tournament-27a59/databases/(default)/documents/tournaments/${params.id}`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (!res.ok) return { tournament: null };
+      const json: any = await res.json();
+      const f = json.fields ?? {};
+      const val = (x: any) =>
+        x?.stringValue ?? x?.integerValue ?? x?.doubleValue ?? x?.timestampValue ?? x?.booleanValue ?? undefined;
+      return {
+        tournament: {
+          name: val(f.name),
+          game: val(f.game),
+          mode: val(f.mode),
+          prize_pool: Number(val(f.prize_pool) ?? 0),
+          entry_fee: Number(val(f.entry_fee) ?? 0),
+          start_time: val(f.start_time),
+          status: val(f.status),
+          max_participants: Number(val(f.max_participants) ?? 0),
+        },
+      };
+    } catch {
+      return { tournament: null };
+    }
+  },
+  head: ({ params, loaderData }) => {
     const url = `https://dftorftour.lovable.app/tournaments/${params.id}`;
-    const title = "Tournament — DFT ORG.";
-    const desc = "Esports tournament details on DFT ORG.";
+    const t = loaderData?.tournament;
+    const title = t?.name ? `${t.name} — DFT ORG. Tournament` : "Tournament — DFT ORG.";
+    const desc = t
+      ? `${t.game ?? "Esports"} ${t.mode ?? ""} tournament with ৳${t.prize_pool} prize pool. Entry ৳${t.entry_fee}. Join now on DFT ORG.`.trim()
+      : "Esports tournament details on DFT ORG.";
+    const scripts: Array<{ type: string; children: string }> = [];
+    if (t) {
+      scripts.push({
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Event",
+          name: t.name,
+          startDate: t.start_time,
+          eventStatus:
+            t.status === "live" || t.status === "ongoing"
+              ? "https://schema.org/EventScheduled"
+              : "https://schema.org/EventScheduled",
+          eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
+          location: {
+            "@type": "VirtualLocation",
+            url,
+          },
+          organizer: {
+            "@type": "Organization",
+            name: "DFT ORG.",
+            url: "https://dftorftour.lovable.app",
+          },
+          offers: {
+            "@type": "Offer",
+            price: String(t.entry_fee ?? 0),
+            priceCurrency: "BDT",
+            availability: "https://schema.org/InStock",
+            url,
+          },
+          description: desc,
+        }),
+      });
+      scripts.push({
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: "https://dftorftour.lovable.app/" },
+            { "@type": "ListItem", position: 2, name: "Tournaments", item: "https://dftorftour.lovable.app/tournaments" },
+            { "@type": "ListItem", position: 3, name: t.name ?? "Tournament", item: url },
+          ],
+        }),
+      });
+    }
     return {
       meta: [
         { title },
@@ -26,6 +102,7 @@ export const Route = createFileRoute("/tournaments/$id")({
         { property: "og:url", content: url },
       ],
       links: [{ rel: "canonical", href: url }],
+      scripts,
     };
   },
   component: TournamentDetail,
