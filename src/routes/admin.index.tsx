@@ -2,14 +2,14 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt, Trash2, UserCircle2 } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, increment } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 
 export const Route = createFileRoute("/admin/")({
@@ -132,7 +132,7 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
@@ -140,6 +140,7 @@ function AdminPage() {
           <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
           <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
           <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
+          <TabsTrigger value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deposits" className="mt-4 space-y-2">
@@ -191,6 +192,10 @@ function AdminPage() {
 
         <TabsContent value="players">
           <PlayersDirectory />
+        </TabsContent>
+
+        <TabsContent value="theme">
+          <ThemeManager />
         </TabsContent>
 
         <TabsContent value="txns" className="mt-4 space-y-2">
