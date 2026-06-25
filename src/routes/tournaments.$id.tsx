@@ -224,7 +224,7 @@ function TournamentDetail() {
           <h3 className="text-sm font-bold text-primary flex items-center gap-2">
             🔑 Room ID & Password
           </h3>
-          {t.room_id && t.room_password ? (
+          {joined && t.room_id && t.room_password ? (
             <div className="mt-2 space-y-1 text-sm">
               <p>
                 <span className="text-muted-foreground">Room ID:</span>{" "}
@@ -234,15 +234,14 @@ function TournamentDetail() {
                 <span className="text-muted-foreground">Password:</span>{" "}
                 <b className="text-base">{t.room_password}</b>
               </p>
-              {!joined && user && (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Join the tournament to confirm your slot.
-                </p>
-              )}
             </div>
-          ) : (
+          ) : joined ? (
             <p className="mt-2 text-sm text-foreground/90 leading-relaxed">
               রাত ৮ টায় এই ওয়েবসাইট এ রুম আইডি ও রুম পাসওয়ার্ড দেয়া হবে।
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              🔒 Join this tournament to see the room ID & password when released.
             </p>
           )}
         </div>
