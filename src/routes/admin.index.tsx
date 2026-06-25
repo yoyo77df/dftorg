@@ -1,16 +1,24 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Send, Link as LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, increment } from "firebase/firestore";
+import {
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, increment,
+  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where,
+} from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import { ALL_PRESETS, FAVORITE_PRESETS, applyTheme, setPublicTheme, type ThemePreset } from "@/lib/themes";
+
+// keep backwards-compatible re-export so any stale imports still resolve
+export { applyTheme } from "@/lib/themes";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -32,23 +40,21 @@ function AdminPage() {
     if (!loading && (!user || !isAdmin)) navigate({ to: "/dashboard" });
   }, [user, isAdmin, loading, navigate]);
 
-  const { data: pendingDeposits } = useQuery({
-    queryKey: ["admin-deposits"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase.from("deposits").select("*").eq("status", "pending").order("created_at");
-      return data ?? [];
-    },
-  });
+  const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+  const [allTxns, setAllTxns] = useState<any[]>([]);
 
-  const { data: pendingWithdrawals } = useQuery({
-    queryKey: ["admin-withdrawals"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase.from("withdrawals").select("*").eq("status", "pending").order("created_at");
-      return data ?? [];
-    },
-  });
+  useEffect(() => {
+    if (!isAdmin) return;
+    const db = getDb();
+    const u1 = onSnapshot(query(collection(db, "deposits"), where("status", "==", "pending")), (s) =>
+      setPendingDeposits(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedAsc)));
+    const u2 = onSnapshot(query(collection(db, "withdrawals"), where("status", "==", "pending")), (s) =>
+      setPendingWithdrawals(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedAsc)));
+    const u3 = onSnapshot(query(collection(db, "wallet_transactions"), limit(500)), (s) =>
+      setAllTxns(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)));
+    return () => { u1(); u2(); u3(); };
+  }, [isAdmin]);
 
   const { data: allTournaments } = useQuery({
     queryKey: ["admin-tournaments"],
@@ -59,42 +65,41 @@ function AdminPage() {
     },
   });
 
-  const { data: allTxns } = useQuery({
-    queryKey: ["admin-all-txns"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("wallet_transactions")
-        .select("id, user_id, type, amount, description, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
-    },
-  });
-
-  const approveDeposit = async (id: string) => {
-    const { error } = await supabase.rpc("approve_deposit", { _deposit_id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Deposit approved");
-    qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+  const approveDeposit = async (d: any) => {
+    try {
+      const db = getDb();
+      await updateDoc(doc(db, "users", d.user_id), { balance: increment(Number(d.amount)) });
+      await updateDoc(doc(db, "deposits", d.id), { status: "approved", reviewed_at: serverTimestamp() });
+      await addDoc(collection(db, "wallet_transactions"), {
+        user_id: d.user_id, type: "deposit", amount: Number(d.amount),
+        description: `${d.method} deposit approved`, created_at: serverTimestamp(), created_at_ms: Date.now(),
+      });
+      toast.success("Deposit approved");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
-  const approveWithdrawal = async (id: string) => {
-    const { error } = await supabase.rpc("approve_withdrawal", { _withdrawal_id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Withdrawal approved");
-    qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+  const approveWithdrawal = async (w: any) => {
+    try {
+      const db = getDb();
+      const uref = doc(db, "users", w.user_id);
+      const snap = await getDoc(uref);
+      const bal = Number((snap.data() as any)?.balance ?? 0);
+      if (bal < Number(w.amount)) return toast.error("User has insufficient balance");
+      await updateDoc(uref, { balance: increment(-Number(w.amount)) });
+      await updateDoc(doc(db, "withdrawals", w.id), { status: "approved", reviewed_at: serverTimestamp() });
+      await addDoc(collection(db, "wallet_transactions"), {
+        user_id: w.user_id, type: "withdrawal", amount: -Number(w.amount),
+        description: `${w.method} withdrawal to ${w.phone}`, created_at: serverTimestamp(), created_at_ms: Date.now(),
+      });
+      toast.success("Withdrawal approved");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectDeposit = async (id: string) => {
-    const { error } = await supabase.from("deposits").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Rejected");
-    qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+    try { await updateDoc(doc(getDb(), "deposits", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectWithdrawal = async (id: string) => {
-    const { error } = await supabase.from("withdrawals").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Rejected");
-    qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+    try { await updateDoc(doc(getDb(), "withdrawals", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    catch (e: any) { toast.error(e?.message || "Failed"); }
   };
 
   const [creating, setCreating] = useState(false);
@@ -132,12 +137,13 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
           <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
-          <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
+          <TabsTrigger value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
+          <TabsTrigger value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
           <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
           <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
           <TabsTrigger value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
@@ -148,15 +154,13 @@ function AdminPage() {
           {(pendingDeposits ?? []).map((d) => (
             <Row key={d.id}
               title={`৳${d.amount} via ${d.method}`}
-              sub={`${d.phone} · TXN: ${d.transaction_id}`}
-              onApprove={() => approveDeposit(d.id)}
+              sub={`${d.username || ""} · ${d.phone} · TXN: ${d.transaction_id}`}
+              onApprove={() => approveDeposit(d)}
               onReject={() => rejectDeposit(d.id)}
               onDelete={async () => {
                 if (!confirm("Delete this deposit record?")) return;
-                const { error } = await supabase.from("deposits").delete().eq("id", d.id);
-                if (error) return toast.error(error.message);
-                toast.success("Deleted");
-                qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+                try { await deleteDoc(doc(getDb(), "deposits", d.id)); toast.success("Deleted"); }
+                catch (e: any) { toast.error(e?.message || "Failed"); }
               }} />
           ))}
         </TabsContent>
@@ -166,15 +170,13 @@ function AdminPage() {
           {(pendingWithdrawals ?? []).map((w) => (
             <Row key={w.id}
               title={`৳${w.amount} via ${w.method}`}
-              sub={`Send to ${w.phone}`}
-              onApprove={() => approveWithdrawal(w.id)}
+              sub={`${w.username || ""} · Send to ${w.phone}`}
+              onApprove={() => approveWithdrawal(w)}
               onReject={() => rejectWithdrawal(w.id)}
               onDelete={async () => {
                 if (!confirm("Delete this withdrawal record?")) return;
-                const { error } = await supabase.from("withdrawals").delete().eq("id", w.id);
-                if (error) return toast.error(error.message);
-                toast.success("Deleted");
-                qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+                try { await deleteDoc(doc(getDb(), "withdrawals", w.id)); toast.success("Deleted"); }
+                catch (e: any) { toast.error(e?.message || "Failed"); }
               }} />
           ))}
         </TabsContent>
@@ -186,8 +188,12 @@ function AdminPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="users">
-          <UserManager />
+        <TabsContent value="support">
+          <SupportAdmin />
+        </TabsContent>
+
+        <TabsContent value="chat">
+          <ChatAdmin />
         </TabsContent>
 
         <TabsContent value="players">
@@ -205,7 +211,7 @@ function AdminPage() {
             return (
               <div key={t.id} className="glass flex items-center justify-between gap-3 rounded-xl p-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold capitalize">{t.type.replace(/_/g, " ")}</p>
+                  <p className="text-sm font-semibold capitalize">{String(t.type || "").replace(/_/g, " ")}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.description ?? "—"}</p>
                   <code className="text-[10px] text-muted-foreground">UID: {t.user_id}</code>
                 </div>
@@ -214,14 +220,12 @@ function AdminPage() {
                     <p className={`font-bold ${positive ? "text-primary" : "text-destructive"}`}>
                       {positive ? "+" : ""}৳{Number(t.amount).toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">{fmtWhen(t.created_at_ms || t.created_at)}</p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={async () => {
                     if (!confirm("Delete this transaction record?")) return;
-                    const { error } = await supabase.from("wallet_transactions").delete().eq("id", t.id);
-                    if (error) return toast.error(error.message);
-                    toast.success("Deleted");
-                    qc.invalidateQueries({ queryKey: ["admin-all-txns"] });
+                    try { await deleteDoc(doc(getDb(), "wallet_transactions", t.id)); toast.success("Deleted"); }
+                    catch (e: any) { toast.error(e?.message || "Failed"); }
                   }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
