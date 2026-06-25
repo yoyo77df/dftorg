@@ -2,13 +2,15 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt, Trash2, UserCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -113,7 +115,6 @@ function AdminPage() {
       total_slots: Number(fd.get("total_slots")),
       start_time: new Date(String(fd.get("start_time"))).toISOString(),
       description: String(fd.get("description")) || null,
-      created_by: user!.id,
     });
     setCreating(false);
     if (error) return toast.error(error.message);
@@ -131,12 +132,13 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
           <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
           <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
+          <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
           <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
         </TabsList>
 
@@ -147,7 +149,14 @@ function AdminPage() {
               title={`৳${d.amount} via ${d.method}`}
               sub={`${d.phone} · TXN: ${d.transaction_id}`}
               onApprove={() => approveDeposit(d.id)}
-              onReject={() => rejectDeposit(d.id)} />
+              onReject={() => rejectDeposit(d.id)}
+              onDelete={async () => {
+                if (!confirm("Delete this deposit record?")) return;
+                const { error } = await supabase.from("deposits").delete().eq("id", d.id);
+                if (error) return toast.error(error.message);
+                toast.success("Deleted");
+                qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+              }} />
           ))}
         </TabsContent>
 
@@ -158,7 +167,14 @@ function AdminPage() {
               title={`৳${w.amount} via ${w.method}`}
               sub={`Send to ${w.phone}`}
               onApprove={() => approveWithdrawal(w.id)}
-              onReject={() => rejectWithdrawal(w.id)} />
+              onReject={() => rejectWithdrawal(w.id)}
+              onDelete={async () => {
+                if (!confirm("Delete this withdrawal record?")) return;
+                const { error } = await supabase.from("withdrawals").delete().eq("id", w.id);
+                if (error) return toast.error(error.message);
+                toast.success("Deleted");
+                qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+              }} />
           ))}
         </TabsContent>
 
@@ -173,6 +189,10 @@ function AdminPage() {
           <UserManager />
         </TabsContent>
 
+        <TabsContent value="players">
+          <PlayersDirectory />
+        </TabsContent>
+
         <TabsContent value="txns" className="mt-4 space-y-2">
           {(allTxns ?? []).length === 0 && <Empty msg="No transactions yet." />}
           {(allTxns ?? []).map((t) => {
@@ -184,11 +204,20 @@ function AdminPage() {
                   <p className="truncate text-xs text-muted-foreground">{t.description ?? "—"}</p>
                   <code className="text-[10px] text-muted-foreground">UID: {t.user_id}</code>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className={`font-bold ${positive ? "text-primary" : "text-destructive"}`}>
-                    {positive ? "+" : ""}৳{Number(t.amount).toLocaleString()}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                <div className="text-right shrink-0 flex items-center gap-2">
+                  <div>
+                    <p className={`font-bold ${positive ? "text-primary" : "text-destructive"}`}>
+                      {positive ? "+" : ""}৳{Number(t.amount).toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={async () => {
+                    if (!confirm("Delete this transaction record?")) return;
+                    const { error } = await supabase.from("wallet_transactions").delete().eq("id", t.id);
+                    if (error) return toast.error(error.message);
+                    toast.success("Deleted");
+                    qc.invalidateQueries({ queryKey: ["admin-all-txns"] });
+                  }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
             );
@@ -229,7 +258,7 @@ function AdminPage() {
 function Empty({ msg }: { msg: string }) {
   return <div className="glass rounded-xl p-8 text-center text-sm text-muted-foreground">{msg}</div>;
 }
-function Row({ title, sub, onApprove, onReject }: { title: string; sub: string; onApprove: () => void; onReject: () => void }) {
+function Row({ title, sub, onApprove, onReject, onDelete }: { title: string; sub: string; onApprove: () => void; onReject: () => void; onDelete?: () => void }) {
   return (
     <div className="glass flex items-center justify-between rounded-xl p-4">
       <div>
@@ -239,6 +268,7 @@ function Row({ title, sub, onApprove, onReject }: { title: string; sub: string; 
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={onReject}>Reject</Button>
         <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] glow-primary">Approve</Button>
+        {onDelete && <Button size="sm" variant="destructive" onClick={onDelete}><Trash2 className="h-3 w-3" /></Button>}
       </div>
     </div>
   );
@@ -483,4 +513,96 @@ function UserManager() {
 
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+function PlayersDirectory() {
+  const [players, setPlayers] = useState<Array<Record<string, any>>>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    const db = getDb();
+    let unsub: (() => void) | null = null;
+    try {
+      const qref = query(collection(db, "users"), orderBy("createdAt", "desc"));
+      unsub = onSnapshot(qref, (snap) => {
+        setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      }, () => {
+        // fallback if no createdAt index
+        const qref2 = collection(db, "users");
+        unsub = onSnapshot(qref2, (snap) => {
+          setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        });
+      });
+    } catch {
+      setLoading(false);
+    }
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  const filtered = players.filter((p) => {
+    if (!q.trim()) return true;
+    const t = q.toLowerCase();
+    return (
+      (p.username || "").toLowerCase().includes(t) ||
+      (p.name || "").toLowerCase().includes(t) ||
+      (p.email || "").toLowerCase().includes(t) ||
+      (p.uid || p.id || "").toLowerCase().includes(t) ||
+      (p.gaming_uid || "").toLowerCase().includes(t)
+    );
+  });
+
+  const remove = async (uid: string, name: string) => {
+    if (!confirm(`Delete player profile "${name}" from directory? (Auth account not deleted)`)) return;
+    try {
+      await deleteDoc(doc(getDb(), "users", uid));
+      toast.success("Player removed from directory");
+    } catch (e: any) {
+      toast.error(e?.message || "Delete failed");
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="glass rounded-xl p-3 flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by username, email, or UID" />
+        <span className="text-xs text-muted-foreground shrink-0">{filtered.length} / {players.length}</span>
+      </div>
+
+      {loading && <Empty msg="Loading players…" />}
+      {!loading && filtered.length === 0 && <Empty msg="No players registered yet." />}
+
+      <div className="space-y-2">
+        {filtered.map((p) => (
+          <div key={p.id} className="glass rounded-xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold truncate">{p.username || p.name || "Unnamed"}</p>
+                  {p.role && p.role !== "user" && (
+                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] uppercase text-primary">{p.role}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{p.email || "—"}</p>
+                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <span>Auto UID: <code className="text-foreground/80">{p.uid || p.id}</code></span>
+                  <span>Gaming UID: <code className="text-foreground/80">{p.gaming_uid || "—"}</code></span>
+                  <span>Rank: {p.rank || "Rookie"}</span>
+                  <span>Balance: ৳{Number(p.balance || 0).toLocaleString()}</span>
+                  <span>Wins: {p.wins ?? 0}</span>
+                  <span>Matches: {p.matches_played ?? 0}</span>
+                </div>
+              </div>
+              <Button size="sm" variant="destructive" onClick={() => remove(p.id, p.username || p.name || "player")}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
