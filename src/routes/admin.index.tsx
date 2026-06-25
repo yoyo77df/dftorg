@@ -17,8 +17,7 @@ import {
 import { getDb } from "@/lib/firebase";
 import { ALL_PRESETS, FAVORITE_PRESETS, applyTheme, setPublicTheme, type ThemePreset } from "@/lib/themes";
 
-// keep backwards-compatible re-export so any stale imports still resolve
-export { applyTheme } from "@/lib/themes";
+// applyTheme re-exported from "@/lib/themes" via import above
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
