@@ -9,7 +9,22 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/register")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Register — DFT ORG." }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [
+      { title: "Register — DFT ORG." },
+      {
+        name: "description",
+        content:
+          "Create your DFT ORG. account to enter Free Fire and esports tournaments, deposit funds, and start climbing the leaderboard.",
+      },
+      { property: "og:title", content: "Register — DFT ORG." },
+      {
+        property: "og:description",
+        content: "Sign up for DFT ORG. and join cash-prize esports tournaments in minutes.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: RegisterPage,
 });
 
