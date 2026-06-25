@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Trophy, Zap, Users, Wallet, Shield, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 
 function fmt(n: number | undefined): string {
   const v = n ?? 0;
@@ -28,55 +28,41 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const qc = useQueryClient();
-
-  const { data: stats } = useQuery({
-    queryKey: ["home-stats"],
-    queryFn: async () => {
-      const [players, tournaments, prize, games] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("tournaments").select("*", { count: "exact", head: true }),
-        supabase.from("tournaments").select("prize_pool"),
-        supabase.from("tournaments").select("game"),
-      ]);
-      const prizeSum = (prize.data ?? []).reduce(
-        (s, r: any) => s + Number(r.prize_pool ?? 0),
-        0,
-      );
-      const gameSet = new Set((games.data ?? []).map((r: any) => r.game));
-      return {
-        players: players.count ?? 0,
-        tournaments: tournaments.count ?? 0,
-        prize: prizeSum,
-        games: gameSet.size,
-      };
-    },
+  const [stats, setStats] = useState({
+    players: 0,
+    tournaments: 0,
+    prize: 0,
+    games: 0,
   });
 
   useEffect(() => {
-    const ch = supabase
-      .channel("home-stats-rt")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => qc.invalidateQueries({ queryKey: ["home-stats"] }),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tournaments" },
-        () => qc.invalidateQueries({ queryKey: ["home-stats"] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
+    const db = getDb();
+    let players = 0;
+    let tournamentRows: any[] = [];
+    const update = () => {
+      const prize = tournamentRows.reduce((sum, t) => sum + Number(t.prize_pool ?? 0), 0);
+      const games = new Set(tournamentRows.map((t) => t.game).filter(Boolean)).size;
+      setStats({ players, tournaments: tournamentRows.length, prize, games });
     };
-  }, [qc]);
+    const u1 = onSnapshot(collection(db, "users"), (snap) => {
+      players = snap.size;
+      update();
+    });
+    const u2 = onSnapshot(collection(db, "tournaments"), (snap) => {
+      tournamentRows = snap.docs.map((d) => d.data());
+      update();
+    });
+    return () => {
+      u1();
+      u2();
+    };
+  }, []);
 
   const items = [
-    { label: "Active players", value: fmt(stats?.players) },
-    { label: "Tournaments", value: fmt(stats?.tournaments) },
-    { label: "Prize pool", value: `৳ ${fmt(stats?.prize)}` },
-    { label: "Games", value: String(stats?.games ?? 0) },
+    { label: "Active players", value: fmt(stats.players) },
+    { label: "Tournaments", value: fmt(stats.tournaments) },
+    { label: "Prize pool", value: `৳ ${fmt(stats.prize)}` },
+    { label: "Games", value: String(stats.games) },
   ];
 
   return (

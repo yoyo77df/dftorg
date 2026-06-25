@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
 import { Trophy, Wallet, User as UserIcon, Shield, Zap, Target, Award, TrendingUp } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth } from "@/context/AuthContext";
 
@@ -25,23 +25,22 @@ function DashboardPage() {
   const { user, isAdmin, loading } = useAuth();
   const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
+  const [tournaments, setTournaments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", replace: true });
   }, [loading, user, navigate]);
 
-  const { data: tournaments } = useQuery({
-    queryKey: ["dashboard-tournaments"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tournaments")
-        .select("*")
-        .in("status", ["upcoming", "live"])
-        .order("start_time", { ascending: true })
-        .limit(4);
-      return data ?? [];
-    },
-  });
+  useEffect(() => {
+    const q = query(collection(getDb(), "tournaments"), where("status", "in", ["upcoming", "live"]), limit(8));
+    const unsub = onSnapshot(q, (snap) => {
+      setTournaments(snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime())
+        .slice(0, 4));
+    });
+    return () => unsub();
+  }, []);
 
   if (loading) {
     return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Loading dashboard…</div>;
@@ -98,7 +97,8 @@ function DashboardPage() {
           {(tournaments ?? []).map((t) => (
             <Link
               key={t.id}
-              to="/tournaments"
+              to="/tournaments/$id"
+              params={{ id: t.id }}
               className="glass rounded-xl border border-border/60 p-4 transition-all hover:border-primary/60 hover:glow-primary"
             >
               <div className="flex items-center justify-between">
@@ -116,7 +116,7 @@ function DashboardPage() {
               </div>
             </Link>
           ))}
-          {(!tournaments || tournaments.length === 0) && (
+          {tournaments.length === 0 && (
             <div className="glass col-span-full rounded-xl p-8 text-center text-sm text-muted-foreground">
               No tournaments scheduled yet. Check back soon.
             </div>

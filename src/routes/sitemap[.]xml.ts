@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 
 const BASE_URL = "https://dftorftour.lovable.app";
 
@@ -20,18 +19,6 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/tournaments", changefreq: "daily", priority: "0.9" },
           { path: "/auth", changefreq: "monthly", priority: "0.5" },
         ];
-
-        const { data: tournaments } = await supabase
-          .from("tournaments")
-          .select("id, updated_at");
-        for (const t of tournaments ?? []) {
-          entries.push({
-            path: `/tournaments/${t.id}`,
-            lastmod: t.updated_at ?? undefined,
-            changefreq: "daily",
-            priority: "0.7",
-          });
-        }
 
         const urls = entries.map((e) =>
           [

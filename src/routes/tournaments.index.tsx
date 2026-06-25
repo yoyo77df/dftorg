@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 import { Trophy, Users, Clock, Coins } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,17 +21,18 @@ export const Route = createFileRoute("/tournaments/")({
 });
 
 function TournamentsPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["tournaments"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tournaments")
-        .select("*")
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(getDb(), "tournaments"), (snap) => {
+      setData(snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime()));
+      setIsLoading(false);
+    }, () => setIsLoading(false));
+    return () => unsub();
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -42,7 +44,7 @@ function TournamentsPage() {
       </div>
 
       {isLoading && <SkeletonGrid />}
-      {!isLoading && (data?.length ?? 0) === 0 && (
+      {!isLoading && data.length === 0 && (
         <div className="glass rounded-2xl p-16 text-center">
           <Trophy className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-semibold">No tournaments yet</h3>
@@ -52,7 +54,7 @@ function TournamentsPage() {
 
       <h2 className="sr-only">Tournament list</h2>
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {data?.map((t) => (
+        {data.map((t) => (
           <Link key={t.id} to="/tournaments/$id" params={{ id: t.id }} className="group glass rounded-2xl p-5 transition-all hover:-translate-y-1 hover:glow-primary">
             <div className="mb-3 flex items-center justify-between">
               <Badge variant="outline" className="uppercase tracking-wider">{t.game}</Badge>
