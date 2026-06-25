@@ -118,6 +118,7 @@ function TournamentDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [joined, setJoined] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [secret, setSecret] = useState<{ room_id?: string | null; room_password?: string | null } | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(getDb(), "tournaments", id), (snap) => {
@@ -155,6 +156,14 @@ function TournamentDetail() {
     const unsub = onSnapshot(doc(getDb(), "tournament_participants", `${id}_${user.id}`), (snap) => setJoined(snap.exists()));
     return () => unsub();
   }, [id, user]);
+
+  useEffect(() => {
+    if (!user || !joined) { setSecret(null); return; }
+    const unsub = onSnapshot(doc(getDb(), "tournament_secrets", id), (snap) => {
+      setSecret(snap.exists() ? (snap.data() as any) : null);
+    }, () => setSecret(null));
+    return () => unsub();
+  }, [id, user, joined]);
 
   const handleJoin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -224,15 +233,15 @@ function TournamentDetail() {
           <h3 className="text-sm font-bold text-primary flex items-center gap-2">
             🔑 Room ID & Password
           </h3>
-          {joined && t.room_id && t.room_password ? (
+          {joined && secret?.room_id && secret?.room_password ? (
             <div className="mt-2 space-y-1 text-sm">
               <p>
                 <span className="text-muted-foreground">Room ID:</span>{" "}
-                <b className="text-base">{t.room_id}</b>
+                <b className="text-base">{secret.room_id}</b>
               </p>
               <p>
                 <span className="text-muted-foreground">Password:</span>{" "}
-                <b className="text-base">{t.room_password}</b>
+                <b className="text-base">{secret.room_password}</b>
               </p>
             </div>
           ) : joined ? (
