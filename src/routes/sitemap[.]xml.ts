@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
 const BASE_URL = "https://dftorftour.lovable.app";
+const FIRESTORE_PROJECT = "dft-tournament-27a59";
 
 interface SitemapEntry {
   path: string;
@@ -16,9 +17,36 @@ export const Route = createFileRoute("/sitemap.xml")({
       GET: async () => {
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
-          { path: "/tournaments", changefreq: "daily", priority: "0.9" },
+          { path: "/tournaments", changefreq: "hourly", priority: "0.9" },
           { path: "/auth", changefreq: "monthly", priority: "0.5" },
         ];
+
+        // Pull live tournaments from Firestore REST (public read).
+        try {
+          const res = await fetch(
+            `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents/tournaments?pageSize=300`,
+            { headers: { Accept: "application/json" } },
+          );
+          if (res.ok) {
+            const json: any = await res.json();
+            const docs: any[] = Array.isArray(json.documents) ? json.documents : [];
+            for (const d of docs) {
+              const id = String(d.name ?? "").split("/").pop();
+              if (!id) continue;
+              const status = d.fields?.status?.stringValue;
+              if (status && !["upcoming", "live", "ongoing"].includes(status)) continue;
+              const updated = d.updateTime || d.fields?.updated_at?.timestampValue;
+              entries.push({
+                path: `/tournaments/${id}`,
+                changefreq: "hourly",
+                priority: "0.8",
+                lastmod: updated ? new Date(updated).toISOString() : undefined,
+              });
+            }
+          }
+        } catch {
+          // Firestore unreachable — fall back to static entries.
+        }
 
         const urls = entries.map((e) =>
           [

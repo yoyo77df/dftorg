@@ -94,6 +94,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "preconnect", href: "https://firestore.googleapis.com" },
+      { rel: "preconnect", href: "https://identitytoolkit.googleapis.com" },
+      { rel: "preconnect", href: "https://www.googleapis.com" },
+      { rel: "dns-prefetch", href: "https://firebaseinstallations.googleapis.com" },
     ],
     scripts: [
       {
@@ -104,6 +108,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           name: "DFT ORG.",
           url: "https://dftorftour.lovable.app",
           description: "Premium esports tournament platform for Free Fire, PUBG, COD, and Valorant.",
+          contactPoint: [{
+            "@type": "ContactPoint",
+            telephone: "+8801957941250",
+            contactType: "customer support",
+            areaServed: "BD",
+            availableLanguage: ["en", "bn"],
+          }],
         }),
       },
       {
@@ -113,6 +124,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@type": "WebSite",
           name: "DFT ORG.",
           url: "https://dftorftour.lovable.app",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://dftorftour.lovable.app/tournaments?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
         }),
       },
     ],
