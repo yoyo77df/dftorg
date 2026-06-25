@@ -41,7 +41,7 @@ function AuthPage() {
     try {
       await login(String(fd.get("email")), String(fd.get("password")));
       toast.success("Welcome back!");
-      navigate({ to: "/dashboard" });
+      await navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
@@ -62,7 +62,7 @@ function AuthPage() {
     try {
       await register(parsed.data.email, parsed.data.password, parsed.data.username);
       toast.success("Account created! Welcome to DFT ORG.…");
-      navigate({ to: "/dashboard" });
+      await navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
@@ -83,8 +83,8 @@ function AuthPage() {
                 Signed in as <span className="font-semibold text-foreground">{currentUser.email}</span>
               </span>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/profile" })}>
-                  Profile
+                <Button size="sm" variant="ghost" onClick={() => navigate({ to: "/dashboard" })}>
+                  Dashboard
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => logout()}>
                   Sign out

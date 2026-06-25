@@ -18,8 +18,16 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   name: string | null;
+  username?: string | null;
   photoURL: string | null;
   role: Role;
+  rank?: string;
+  xp?: number;
+  wins?: number;
+  total_kills?: number;
+  matches_played?: number;
+  earnings?: number;
+  balance?: number;
 }
 
 interface AuthContextValue {
@@ -59,6 +67,7 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
       total_kills: 0,
       matches_played: 0,
       earnings: 0,
+      balance: 0,
       createdAt: serverTimestamp(),
     });
   } else if (fallbackName || user.displayName || user.photoURL || user.email) {
@@ -70,6 +79,25 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
       photoURL: user.photoURL,
     }, { merge: true });
   }
+}
+
+function makeFallbackProfile(user: User, data?: Partial<UserProfile> & Record<string, unknown>): UserProfile {
+  const fallbackName = user.displayName || (user.email ? user.email.split("@")[0] : "Player");
+  return {
+    uid: user.uid,
+    email: (data?.email as string | null | undefined) ?? user.email,
+    name: (data?.name as string | null | undefined) ?? fallbackName,
+    username: (data?.username as string | null | undefined) ?? (data?.name as string | null | undefined) ?? fallbackName,
+    photoURL: (data?.photoURL as string | null | undefined) ?? user.photoURL ?? null,
+    role: (data?.role as Role | undefined) ?? "user",
+    rank: (data?.rank as string | undefined) ?? "Rookie",
+    xp: Number(data?.xp ?? 0),
+    wins: Number(data?.wins ?? 0),
+    total_kills: Number(data?.total_kills ?? 0),
+    matches_played: Number(data?.matches_played ?? 0),
+    earnings: Number(data?.earnings ?? 0),
+    balance: Number(data?.balance ?? 0),
+  };
 }
 
 export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
@@ -92,6 +120,8 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       }
       setCurrentUser(user);
       if (user) {
+        setUserProfile(makeFallbackProfile(user));
+        setLoading(false);
         try {
           await ensureUserDoc(user);
         } catch (e) {
@@ -100,27 +130,15 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
         const db = getDb();
         unsubDoc = onSnapshot(doc(db, "users", user.uid), (snap) => {
           if (snap.exists()) {
-            const d = snap.data() as Partial<UserProfile>;
-            setUserProfile({
-              uid: user.uid,
-              email: d.email ?? user.email,
-              name: d.name ?? user.displayName ?? null,
-              photoURL: d.photoURL ?? user.photoURL ?? null,
-              role: (d.role as Role) ?? "user",
-            });
+            const d = snap.data() as Partial<UserProfile> & Record<string, unknown>;
+            setUserProfile(makeFallbackProfile(user, d));
           } else {
-            setUserProfile(null);
+            setUserProfile(makeFallbackProfile(user));
           }
           setLoading(false);
         }, (err) => {
           console.error("user doc snapshot error", err);
-          setUserProfile({
-            uid: user.uid,
-            email: user.email,
-            name: user.displayName ?? (user.email ? user.email.split("@")[0] : "Player"),
-            photoURL: user.photoURL ?? null,
-            role: "user",
-          });
+          setUserProfile(makeFallbackProfile(user));
           setLoading(false);
         });
       } else {
@@ -147,6 +165,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       console.warn("User signed up, but Firestore profile write failed", e);
     }
     setCurrentUser(cred.user);
+    setUserProfile(makeFallbackProfile(cred.user, { name, username: name }));
     setLoading(false);
   };
 
@@ -159,6 +178,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       console.warn("User signed in, but Firestore profile sync failed", e);
     }
     setCurrentUser(cred.user);
+    setUserProfile(makeFallbackProfile(cred.user));
     setLoading(false);
   };
 
@@ -171,6 +191,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       console.warn("Google sign-in succeeded, but Firestore profile sync failed", e);
     }
     setCurrentUser(cred.user);
+    setUserProfile(makeFallbackProfile(cred.user));
     setLoading(false);
   };
 
