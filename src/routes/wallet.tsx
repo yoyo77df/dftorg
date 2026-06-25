@@ -1,11 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Wallet as WalletIcon, ArrowDownToLine, ArrowUpFromLine, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp, where,
+} from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,55 +44,35 @@ const withdrawSchema = z.object({
 
 function WalletPage() {
   const { user, loading } = useAuth();
+  const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
-  const qc = useQueryClient();
 
   useEffect(() => { if (!loading && !user) navigate({ to: "/auth" }); }, [user, loading, navigate]);
 
-  const { data: wallet } = useQuery({
-    queryKey: ["wallet", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("wallets").select("*").eq("user_id", user!.id).single();
-      return data;
-    },
-  });
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [txns, setTxns] = useState<any[]>([]);
 
-  const { data: txns } = useQuery({
-    queryKey: ["txns", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      return data ?? [];
-    },
-  });
+  useEffect(() => {
+    if (!user) return;
+    const db = getDb();
+    const subs: Array<() => void> = [];
+    subs.push(onSnapshot(
+      query(collection(db, "deposits"), where("user_id", "==", user.id), limit(20)),
+      (s) => setDeposits(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+    ));
+    subs.push(onSnapshot(
+      query(collection(db, "withdrawals"), where("user_id", "==", user.id), limit(20)),
+      (s) => setWithdrawals(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+    ));
+    subs.push(onSnapshot(
+      query(collection(db, "wallet_transactions"), where("user_id", "==", user.id), limit(40)),
+      (s) => setTxns(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+    ));
+    return () => subs.forEach((u) => u());
+  }, [user]);
 
-  const { data: deposits } = useQuery({
-    queryKey: ["deposits", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("deposits").select("*").eq("user_id", user!.id)
-        .order("created_at", { ascending: false }).limit(10);
-      return data ?? [];
-    },
-  });
-
-  const { data: withdrawals } = useQuery({
-    queryKey: ["withdrawals", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("withdrawals").select("*").eq("user_id", user!.id)
-        .order("created_at", { ascending: false }).limit(10);
-      return data ?? [];
-    },
-  });
+  const balance = Number(userProfile?.balance ?? 0);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,18 +88,25 @@ function WalletPage() {
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     if (!parsed.data.transaction_id) return toast.error("Transaction ID required");
     setSubmitting(true);
-    const { error } = await supabase.from("deposits").insert({
-      user_id: user!.id,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      phone: parsed.data.phone,
-      transaction_id: parsed.data.transaction_id,
-    });
-    setSubmitting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Deposit request sent for approval");
-    (e.target as HTMLFormElement).reset();
-    qc.invalidateQueries({ queryKey: ["deposits"] });
+    try {
+      await addDoc(collection(getDb(), "deposits"), {
+        user_id: user!.id,
+        username: userProfile?.username || userProfile?.name || user!.email || "user",
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        phone: parsed.data.phone,
+        transaction_id: parsed.data.transaction_id,
+        status: "pending",
+        created_at: serverTimestamp(),
+        created_at_ms: Date.now(),
+      });
+      toast.success("Deposit request sent for approval");
+      (e.target as HTMLFormElement).reset();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleWithdraw = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -128,19 +118,26 @@ function WalletPage() {
       phone: fd.get("phone"),
     });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
-    if (parsed.data.amount > Number(wallet?.balance ?? 0)) return toast.error("Insufficient balance");
+    if (parsed.data.amount > balance) return toast.error("Insufficient balance");
     setSubmitting(true);
-    const { error } = await supabase.from("withdrawals").insert({
-      user_id: user!.id,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      phone: parsed.data.phone,
-    });
-    setSubmitting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Withdrawal request submitted");
-    (e.target as HTMLFormElement).reset();
-    qc.invalidateQueries({ queryKey: ["withdrawals"] });
+    try {
+      await addDoc(collection(getDb(), "withdrawals"), {
+        user_id: user!.id,
+        username: userProfile?.username || userProfile?.name || user!.email || "user",
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        phone: parsed.data.phone,
+        status: "pending",
+        created_at: serverTimestamp(),
+        created_at_ms: Date.now(),
+      });
+      toast.success("Withdrawal request submitted");
+      (e.target as HTMLFormElement).reset();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!user) return null;
@@ -150,8 +147,8 @@ function WalletPage() {
       <div className="glass neon-border flex items-center justify-between rounded-2xl p-6">
         <div>
           <h1 className="text-2xl font-bold">Wallet Overview</h1>
-          <p className="mt-2 text-4xl font-bold text-gradient">৳ {Number(wallet?.balance ?? 0).toFixed(2)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Bonus: ৳ {Number(wallet?.bonus_balance ?? 0).toFixed(2)}</p>
+          <p className="mt-2 text-4xl font-bold text-gradient">৳ {balance.toFixed(2)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Live balance</p>
         </div>
         <span className="grid h-14 w-14 place-items-center rounded-xl bg-[var(--gradient-primary)] glow-primary">
           <WalletIcon className="h-6 w-6 text-primary-foreground" />
@@ -183,7 +180,7 @@ function WalletPage() {
             </Button>
           </form>
 
-          <List title="Your deposits" items={(deposits ?? []).map((d) => ({
+          <List title="Your deposits" items={deposits.map((d) => ({
             id: d.id, label: `${d.method} · ৳${d.amount}`, sub: d.transaction_id, status: d.status,
           }))} />
         </TabsContent>
@@ -200,18 +197,18 @@ function WalletPage() {
             </Button>
           </form>
 
-          <List title="Your withdrawals" items={(withdrawals ?? []).map((w) => ({
+          <List title="Your withdrawals" items={withdrawals.map((w) => ({
             id: w.id, label: `${w.method} · ৳${w.amount}`, sub: w.phone, status: w.status,
           }))} />
         </TabsContent>
 
         <TabsContent value="history">
           <div className="glass mt-4 divide-y divide-border/60 rounded-xl">
-            {(txns ?? []).length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">No transactions yet.</p>}
-            {(txns ?? []).map((t) => (
+            {txns.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">No transactions yet.</p>}
+            {txns.map((t) => (
               <div key={t.id} className="flex items-center justify-between p-4">
                 <div>
-                  <p className="text-sm font-semibold capitalize">{t.type.replace(/_/g, " ")}</p>
+                  <p className="text-sm font-semibold capitalize">{String(t.type || "").replace(/_/g, " ")}</p>
                   <p className="text-xs text-muted-foreground">{t.description}</p>
                 </div>
                 <p className={`font-bold ${Number(t.amount) >= 0 ? "text-primary" : "text-destructive"}`}>
@@ -224,6 +221,10 @@ function WalletPage() {
       </Tabs>
     </div>
   );
+}
+
+function byCreatedDesc(a: any, b: any) {
+  return Number(b.created_at_ms || 0) - Number(a.created_at_ms || 0);
 }
 
 function Row({ children }: { children: React.ReactNode }) {
