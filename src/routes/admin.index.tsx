@@ -1,9 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +31,6 @@ export const Route = createFileRoute("/admin/")({
 function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
-  const qc = useQueryClient();
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) navigate({ to: "/dashboard" });
@@ -42,6 +39,7 @@ function AdminPage() {
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
   const [allTxns, setAllTxns] = useState<any[]>([]);
+  const [allTournaments, setAllTournaments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -52,17 +50,10 @@ function AdminPage() {
       setPendingWithdrawals(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedAsc)));
     const u3 = onSnapshot(query(collection(db, "wallet_transactions"), limit(500)), (s) =>
       setAllTxns(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)));
-    return () => { u1(); u2(); u3(); };
+    const u4 = onSnapshot(collection(db, "tournaments"), (s) =>
+      setAllTournaments(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byTournamentDesc)));
+    return () => { u1(); u2(); u3(); u4(); };
   }, [isAdmin]);
-
-  const { data: allTournaments } = useQuery({
-    queryKey: ["admin-tournaments"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase.from("tournaments").select("*").order("start_time", { ascending: false });
-      return data ?? [];
-    },
-  });
 
   const approveDeposit = async (d: any) => {
     try {
@@ -122,24 +113,35 @@ function AdminPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setCreating(true);
-    const { error } = await supabase.from("tournaments").insert({
-      title: String(fd.get("title")),
-      game: String(fd.get("game")),
-      mode: String(fd.get("mode")),
-      map: String(fd.get("map")) || null,
-      entry_fee: Number(fd.get("entry_fee")),
-      prize_pool: Number(fd.get("prize_pool")),
-      prize_first: Number(fd.get("prize_first")),
-      prize_second: Number(fd.get("prize_second")),
-      prize_third: Number(fd.get("prize_third")),
-      total_slots: Number(fd.get("total_slots")),
-      start_time: new Date(String(fd.get("start_time"))).toISOString(),
-      description: String(fd.get("description")) || null,
-    });
-    setCreating(false);
-    if (error) return toast.error(error.message);
-    toast.success("Tournament created");
-    (e.target as HTMLFormElement).reset();
+    try {
+      await addDoc(collection(getDb(), "tournaments"), {
+        title: String(fd.get("title") || "Untitled tournament"),
+        game: String(fd.get("game") || "Free Fire"),
+        mode: String(fd.get("mode") || "Solo"),
+        map: String(fd.get("map") || "") || null,
+        entry_fee: Number(fd.get("entry_fee") || 0),
+        prize_pool: Number(fd.get("prize_pool") || 0),
+        prize_first: Number(fd.get("prize_first") || 0),
+        prize_second: Number(fd.get("prize_second") || 0),
+        prize_third: Number(fd.get("prize_third") || 0),
+        total_slots: Number(fd.get("total_slots") || 0),
+        joined_slots: 0,
+        start_time: new Date(String(fd.get("start_time"))).toISOString(),
+        description: String(fd.get("description") || "") || null,
+        status: "upcoming",
+        room_id: null,
+        room_password: null,
+        created_at: serverTimestamp(),
+        created_at_ms: Date.now(),
+        updated_at: serverTimestamp(),
+      });
+      toast.success("Tournament created");
+      (e.target as HTMLFormElement).reset();
+    } catch (e: any) {
+      toast.error(e?.message || "Tournament create failed");
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (!user || !isAdmin) return null;
@@ -197,9 +199,9 @@ function AdminPage() {
         </TabsContent>
 
         <TabsContent value="manage" className="mt-4 space-y-2">
-          {(allTournaments ?? []).length === 0 && <Empty msg="No tournaments yet." />}
-          {(allTournaments ?? []).map((t) => (
-            <TournamentRow key={t.id} t={t} qc={qc} />
+          {allTournaments.length === 0 && <Empty msg="No tournaments yet." />}
+          {allTournaments.map((t) => (
+            <TournamentRow key={t.id} t={t} />
           ))}
         </TabsContent>
 
@@ -316,7 +318,7 @@ function Sel({ name, label, options }: { name: string; label: string; options: s
   );
 }
 
-function TournamentRow({ t, qc }: { t: any; qc: ReturnType<typeof useQueryClient> }) {
+function TournamentRow({ t }: { t: any }) {
   const [open, setOpen] = useState(false);
   const [roomId, setRoomId] = useState(t.room_id ?? "");
   const [pwd, setPwd] = useState(t.room_password ?? "");
@@ -325,26 +327,30 @@ function TournamentRow({ t, qc }: { t: any; qc: ReturnType<typeof useQueryClient
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("tournaments").update({
-      room_id: roomId || null,
-      room_password: pwd || null,
-      status,
-      updated_at: new Date().toISOString(),
-    }).eq("id", t.id);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Updated — visible to joined players");
-    qc.invalidateQueries({ queryKey: ["admin-tournaments"] });
-    qc.invalidateQueries({ queryKey: ["tournament", t.id] });
-    setOpen(false);
+    try {
+      await updateDoc(doc(getDb(), "tournaments", t.id), {
+        room_id: roomId || null,
+        room_password: pwd || null,
+        status,
+        updated_at: serverTimestamp(),
+      });
+      toast.success("Updated — visible to joined players");
+      setOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Update failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = async () => {
     if (!confirm(`Delete "${t.title}"?`)) return;
-    const { error } = await supabase.from("tournaments").delete().eq("id", t.id);
-    if (error) return toast.error(error.message);
-    toast.success("Deleted");
-    qc.invalidateQueries({ queryKey: ["admin-tournaments"] });
+    try {
+      await deleteDoc(doc(getDb(), "tournaments", t.id));
+      toast.success("Deleted");
+    } catch (e: any) {
+      toast.error(e?.message || "Delete failed");
+    }
   };
 
   return (
@@ -542,6 +548,9 @@ function tsMs(v: any): number {
 }
 function byCreatedDesc(a: any, b: any) {
   return tsMs(b.created_at_ms ?? b.created_at) - tsMs(a.created_at_ms ?? a.created_at);
+}
+function byTournamentDesc(a: any, b: any) {
+  return new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime();
 }
 function byCreatedAsc(a: any, b: any) {
   return tsMs(a.created_at_ms ?? a.created_at) - tsMs(b.created_at_ms ?? b.created_at);
