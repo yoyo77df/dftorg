@@ -41,7 +41,7 @@ function AuthPage() {
     try {
       await login(String(fd.get("email")), String(fd.get("password")));
       toast.success("Welcome back!");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
@@ -62,7 +62,7 @@ function AuthPage() {
     try {
       await register(parsed.data.email, parsed.data.password, parsed.data.username);
       toast.success("Account created! Welcome to DFT ORG.…");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {

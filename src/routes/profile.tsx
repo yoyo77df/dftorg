@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trophy, Target, Zap, TrendingUp, User as UserIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
+import { getDb } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +38,16 @@ function ProfilePage() {
     queryKey: ["profile", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
-      return data;
+      const db = getDb();
+      const ref = doc(db, "users", user!.id);
+      const snap = await getDoc(ref);
+      const fallbackName = user!.displayName || user!.email?.split("@")[0] || "Player";
+      if (!snap.exists()) {
+        const created = defaultProfile(user!.id, user!.email ?? null, fallbackName, user!.photoURL ?? null);
+        await setDoc(ref, { ...created, createdAt: serverTimestamp() }, { merge: true });
+        return created;
+      }
+      return normalizeProfile(user!.id, user!.email ?? null, fallbackName, user!.photoURL ?? null, snap.data());
     },
   });
 
@@ -46,16 +55,23 @@ function ProfilePage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
-      username: String(fd.get("username")).trim(),
-      country: String(fd.get("country")).trim(),
-      gaming_uid: String(fd.get("gaming_uid")).trim(),
-      bio: String(fd.get("bio")).trim() || null,
-    }).eq("id", user!.id);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Profile updated");
-    qc.invalidateQueries({ queryKey: ["profile"] });
+    try {
+      const username = String(fd.get("username")).trim();
+      await setDoc(doc(getDb(), "users", user!.id), {
+        name: username,
+        username,
+        country: String(fd.get("country")).trim(),
+        gaming_uid: String(fd.get("gaming_uid")).trim(),
+        bio: String(fd.get("bio")).trim() || null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      toast.success("Profile updated");
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    } catch (error: any) {
+      toast.error(error?.message ?? "Profile update failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!user || !profile) return <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">Loading…</div>;
@@ -98,6 +114,45 @@ function ProfilePage() {
       </form>
     </div>
   );
+}
+
+function defaultProfile(uid: string, email: string | null, name: string, photoURL: string | null) {
+  return {
+    uid,
+    email,
+    name,
+    username: name,
+    photoURL,
+    role: "user",
+    country: "",
+    gaming_uid: "",
+    bio: null,
+    rank: "Rookie",
+    xp: 0,
+    wins: 0,
+    total_kills: 0,
+    matches_played: 0,
+    earnings: 0,
+  };
+}
+
+function normalizeProfile(uid: string, email: string | null, name: string, photoURL: string | null, data: Record<string, any>) {
+  const base = defaultProfile(uid, email, name, photoURL);
+  return {
+    ...base,
+    ...data,
+    uid,
+    email: data.email ?? email,
+    name: data.name ?? data.username ?? name,
+    username: data.username ?? data.name ?? name,
+    photoURL: data.photoURL ?? photoURL,
+    rank: data.rank ?? "Rookie",
+    xp: Number(data.xp ?? 0),
+    wins: Number(data.wins ?? 0),
+    total_kills: Number(data.total_kills ?? 0),
+    matches_played: Number(data.matches_played ?? 0),
+    earnings: Number(data.earnings ?? 0),
+  };
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {

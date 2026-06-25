@@ -41,15 +41,34 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
   const db = getDb();
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
+  const name = fallbackName || user.displayName || (user.email ? user.email.split("@")[0] : "Player");
   if (!snap.exists()) {
     await setDoc(ref, {
       uid: user.uid,
       email: user.email,
-      name: fallbackName || user.displayName || (user.email ? user.email.split("@")[0] : "Player"),
+      name,
+      username: name,
       photoURL: user.photoURL,
       role: "user",
+      country: "",
+      gaming_uid: "",
+      bio: null,
+      rank: "Rookie",
+      xp: 0,
+      wins: 0,
+      total_kills: 0,
+      matches_played: 0,
+      earnings: 0,
       createdAt: serverTimestamp(),
     });
+  } else if (fallbackName || user.displayName || user.photoURL || user.email) {
+    const existing = snap.data() as Partial<UserProfile> & { username?: string };
+    await setDoc(ref, {
+      email: user.email,
+      name: existing.name || name,
+      username: existing.username || name,
+      photoURL: user.photoURL,
+    }, { merge: true });
   }
 }
 
@@ -95,6 +114,13 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }, (err) => {
           console.error("user doc snapshot error", err);
+          setUserProfile({
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName ?? (user.email ? user.email.split("@")[0] : "Player"),
+            photoURL: user.photoURL ?? null,
+            role: "user",
+          });
           setLoading(false);
         });
       } else {
@@ -115,23 +141,45 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     if (name) {
       await updateProfile(cred.user, { displayName: name });
     }
-    await ensureUserDoc(cred.user, name);
+    try {
+      await ensureUserDoc(cred.user, name);
+    } catch (e) {
+      console.warn("User signed up, but Firestore profile write failed", e);
+    }
+    setCurrentUser(cred.user);
+    setLoading(false);
   };
 
   const login = async (email: string, password: string) => {
     const auth = getFirebaseAuth();
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await ensureUserDoc(cred.user);
+    } catch (e) {
+      console.warn("User signed in, but Firestore profile sync failed", e);
+    }
+    setCurrentUser(cred.user);
+    setLoading(false);
   };
 
   const loginWithGoogle = async () => {
     const auth = getFirebaseAuth();
     const cred = await signInWithPopup(auth, googleProvider);
-    await ensureUserDoc(cred.user);
+    try {
+      await ensureUserDoc(cred.user);
+    } catch (e) {
+      console.warn("Google sign-in succeeded, but Firestore profile sync failed", e);
+    }
+    setCurrentUser(cred.user);
+    setLoading(false);
   };
 
   const logout = async () => {
     const auth = getFirebaseAuth();
     await fbSignOut(auth);
+    setCurrentUser(null);
+    setUserProfile(null);
+    setLoading(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -174,6 +222,8 @@ export function mapFirebaseError(code: string | undefined): string {
     case "auth/popup-blocked": return "Popup blocked by browser. Allow popups and try again.";
     case "auth/network-request-failed": return "Network error. Check your connection.";
     case "auth/too-many-requests": return "Too many attempts. Please try later.";
+    case "auth/operation-not-allowed": return "Firebase Email/Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.";
+    case "auth/configuration-not-found": return "Firebase Authentication is not enabled for this project. Enable Authentication in Firebase Console.";
     case "auth/unauthorized-domain": return "This domain is not authorized in Firebase. Add it in Console → Authentication → Settings → Authorized domains.";
     default: return "Something went wrong. Please try again.";
   }

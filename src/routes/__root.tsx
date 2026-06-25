@@ -7,9 +7,6 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { AuthProvider } from "@/hooks/use-auth";
 import { FirebaseAuthProvider } from "@/context/AuthContext";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -140,29 +137,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      router.invalidate();
-      queryClient.invalidateQueries();
-    });
-    return () => subscription.unsubscribe();
-  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <FirebaseAuthProvider>
-          <div className="flex min-h-screen flex-col">
-            <SiteHeader />
-            <main className="flex-1">
-              <Outlet />
-            </main>
-          </div>
-          <Toaster />
-        </FirebaseAuthProvider>
-      </AuthProvider>
+      <FirebaseAuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+        </div>
+        <Toaster />
+      </FirebaseAuthProvider>
     </QueryClientProvider>
   );
 }

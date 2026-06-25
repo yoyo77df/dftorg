@@ -27,7 +27,7 @@ function RegisterPage() {
     try {
       await register(email, password, name);
       toast.success("Account created!");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
@@ -40,7 +40,7 @@ function RegisterPage() {
     try {
       await loginWithGoogle();
       toast.success("Signed in with Google");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
