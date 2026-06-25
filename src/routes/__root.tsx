@@ -8,6 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { FirebaseAuthProvider } from "@/context/AuthContext";
+import { useEffect } from "react";
+import { applyTheme } from "@/routes/admin.index";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -137,6 +139,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("dft.theme") : null;
+    if (saved && saved !== "none") applyTheme(saved);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
