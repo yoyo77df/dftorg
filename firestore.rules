@@ -63,8 +63,8 @@ service cloud.firestore {
 
     // ---------- TOURNAMENTS ----------
     match /tournaments/{id} {
-      // Public listing — do NOT store room_id/room_password on this doc.
-      allow read: if true;
+      // Signed-in users only. Room credentials live in tournament_secrets.
+      allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
     }
 
