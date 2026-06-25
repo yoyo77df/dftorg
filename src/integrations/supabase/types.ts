@@ -176,6 +176,13 @@ export type Database = {
             referencedRelation: "tournaments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tournament_participants_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tournaments: {
@@ -360,7 +367,72 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      tournaments_public: {
+        Row: {
+          banner_url: string | null
+          created_at: string | null
+          description: string | null
+          entry_fee: number | null
+          game: string | null
+          id: string | null
+          joined_slots: number | null
+          map: string | null
+          mode: string | null
+          prize_first: number | null
+          prize_pool: number | null
+          prize_second: number | null
+          prize_third: number | null
+          rules: string | null
+          start_time: string | null
+          status: string | null
+          title: string | null
+          total_slots: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          game?: string | null
+          id?: string | null
+          joined_slots?: number | null
+          map?: string | null
+          mode?: string | null
+          prize_first?: number | null
+          prize_pool?: number | null
+          prize_second?: number | null
+          prize_third?: number | null
+          rules?: string | null
+          start_time?: string | null
+          status?: string | null
+          title?: string | null
+          total_slots?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          game?: string | null
+          id?: string | null
+          joined_slots?: number | null
+          map?: string | null
+          mode?: string | null
+          prize_first?: number | null
+          prize_pool?: number | null
+          prize_second?: number | null
+          prize_third?: number | null
+          rules?: string | null
+          start_time?: string | null
+          status?: string | null
+          title?: string | null
+          total_slots?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_add_prize: {
