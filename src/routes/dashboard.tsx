@@ -35,7 +35,7 @@ function DashboardPage() {
     const q = query(collection(getDb(), "tournaments"), where("status", "in", ["upcoming", "live"]), limit(8));
     const unsub = onSnapshot(q, (snap) => {
       setTournaments(snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+        .map((d) => ({ id: d.id, ...d.data() }) as any)
         .sort((a, b) => new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime())
         .slice(0, 4));
     });

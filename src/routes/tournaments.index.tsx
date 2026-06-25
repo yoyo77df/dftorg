@@ -27,7 +27,7 @@ function TournamentsPage() {
   useEffect(() => {
     const unsub = onSnapshot(collection(getDb(), "tournaments"), (snap) => {
       setData(snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+        .map((d) => ({ id: d.id, ...d.data() }) as any)
         .sort((a, b) => new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime()));
       setIsLoading(false);
     }, () => setIsLoading(false));
