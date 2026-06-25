@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Wallet, User as UserIcon, Shield, Zap, Target, Award, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,10 @@ function DashboardPage() {
   const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth", replace: true });
+  }, [loading, user, navigate]);
+
   const { data: tournaments } = useQuery({
     queryKey: ["dashboard-tournaments"],
     queryFn: async () => {
@@ -43,7 +48,6 @@ function DashboardPage() {
   }
 
   if (!user) {
-    navigate({ to: "/auth", replace: true });
     return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Redirecting to sign in…</div>;
   }
 
