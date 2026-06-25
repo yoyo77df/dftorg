@@ -507,3 +507,364 @@ function PlayersDirectory() {
     </div>
   );
 }
+
+/* ---------- Helpers ---------- */
+
+function tsMs(v: any): number {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v?.toMillis === "function") return v.toMillis();
+  if (typeof v?.seconds === "number") return v.seconds * 1000;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
+}
+function byCreatedDesc(a: any, b: any) {
+  return tsMs(b.created_at_ms ?? b.created_at) - tsMs(a.created_at_ms ?? a.created_at);
+}
+function byCreatedAsc(a: any, b: any) {
+  return tsMs(a.created_at_ms ?? a.created_at) - tsMs(b.created_at_ms ?? b.created_at);
+}
+function fmtWhen(v: any): string {
+  const ms = tsMs(v);
+  return ms ? new Date(ms).toLocaleString() : "—";
+}
+
+/* ---------- Theme Manager (public, broadcast to all users) ---------- */
+
+function ThemeManager() {
+  const [active, setActive] = useState<string>("none");
+  const [filter, setFilter] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    const unsub = onSnapshot(doc(db, "app_settings", "theme"), (s) => {
+      const id = (s.data() as any)?.id;
+      setActive(id || "none");
+    });
+    return () => unsub();
+  }, []);
+
+  const pick = async (id: string) => {
+    setSaving(true);
+    try {
+      await setPublicTheme(id === "none" ? null : id);
+      setActive(id);
+      toast.success(id === "none" ? "Default theme restored for everyone" : `Theme broadcast to all users`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save theme");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return ALL_PRESETS;
+    return ALL_PRESETS.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+  }, [filter]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="glass neon-border rounded-xl p-4 space-y-2">
+        <p className="text-sm">
+          Pick a theme — it will instantly recolor the website <b>for every visitor</b>.
+          Choose <b>None</b> to restore the original Cyber Violet look.
+        </p>
+        <p className="text-xs text-muted-foreground">{ALL_PRESETS.length} themes available · {FAVORITE_PRESETS.length} favorites pinned at top</p>
+        <div className="flex gap-2">
+          <Input placeholder="Filter themes (e.g. neon, dark, blue)…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <Button variant="outline" disabled={saving} onClick={() => pick("none")}>Reset to default</Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ThemeCard
+          active={active === "none"}
+          onClick={() => pick("none")}
+          name="None (Default)"
+          subtitle="Cyber Violet — original"
+          swatch={["#1a0d2e", "#7c3aed", "#22d3ee", "#f5f3ff"]}
+        />
+        {filtered.map((p) => (
+          <ThemeCard
+            key={p.id}
+            active={active === p.id}
+            onClick={() => pick(p.id)}
+            name={p.name}
+            subtitle={p.id}
+            swatch={p.swatch}
+            preset={p}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeCard({
+  active, onClick, name, subtitle, swatch, preset,
+}: { active: boolean; onClick: () => void; name: string; subtitle: string; swatch: string[]; preset?: ThemePreset }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`glass rounded-xl p-4 text-left transition hover:glow-primary ${active ? "neon-border" : ""}`}
+    >
+      <p className="font-semibold truncate">{name}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>
+      <div className="mt-3 flex h-10 overflow-hidden rounded-lg">
+        {swatch.map((c, i) => (
+          <div key={i} className="flex-1" style={{ background: c }} />
+        ))}
+      </div>
+      {preset && (
+        <div
+          className="mt-3 rounded-lg p-3 text-xs"
+          style={{
+            background: swatch[1],
+            color: swatch[3],
+            border: `1px solid ${swatch[2]}`,
+          }}
+        >
+          <span style={{ color: swatch[2], fontWeight: 700 }}>DFT ORG.</span> sample card
+        </div>
+      )}
+    </button>
+  );
+}
+
+/* ---------- Support (admin): manage links + 1-to-1 chat threads ---------- */
+
+function SupportAdmin() {
+  const [link, setLink] = useState("");
+  const [label, setLabel] = useState("");
+  const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);
+  const [threads, setThreads] = useState<any[]>([]);
+  const [openUid, setOpenUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const db = getDb();
+    const u1 = onSnapshot(doc(db, "app_settings", "support"), (s) => {
+      setLinks(((s.data() as any)?.links as any[]) || []);
+    });
+    const u2 = onSnapshot(collection(db, "support_threads"), (s) => {
+      setThreads(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc));
+    });
+    return () => { u1(); u2(); };
+  }, []);
+
+  const addLink = async () => {
+    if (!link.trim()) return toast.error("Enter a URL");
+    try {
+      await setDoc(
+        doc(getDb(), "app_settings", "support"),
+        { links: arrayUnion({ label: label.trim() || link.trim(), url: link.trim() }) },
+        { merge: true },
+      );
+      setLink(""); setLabel("");
+      toast.success("Link added — visible to all users");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+  };
+
+  const removeLink = async (l: { label: string; url: string }) => {
+    try {
+      await setDoc(doc(getDb(), "app_settings", "support"), { links: arrayRemove(l) }, { merge: true });
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="glass rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <LinkIcon className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">Support links</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">Links shown to every user on their Support page (Facebook, WhatsApp, Telegram, etc.).</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Input placeholder="Label (e.g. WhatsApp)" value={label} onChange={(e) => setLabel(e.target.value)} />
+          <Input className="col-span-2" placeholder="https://wa.me/8801957941250" value={link} onChange={(e) => setLink(e.target.value)} />
+        </div>
+        <Button onClick={addLink} className="bg-[var(--gradient-primary)] glow-primary"><Plus className="mr-1 h-3 w-3" /> Add link</Button>
+        <div className="space-y-1">
+          {links.length === 0 && <p className="text-xs text-muted-foreground">No links yet.</p>}
+          {links.map((l, i) => (
+            <div key={i} className="flex items-center justify-between rounded-md border border-border/40 p-2 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium truncate">{l.label}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{l.url}</p>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => removeLink(l)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <ThreadList
+        title="Support conversations"
+        threads={threads}
+        openUid={openUid}
+        onOpen={setOpenUid}
+        kind="support"
+      />
+    </div>
+  );
+}
+
+/* ---------- Chat (admin): public chat threads ---------- */
+
+function ChatAdmin() {
+  const [threads, setThreads] = useState<any[]>([]);
+  const [openUid, setOpenUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const db = getDb();
+    const u = onSnapshot(collection(db, "chat_threads"), (s) => {
+      setThreads(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc));
+    });
+    return () => u();
+  }, []);
+
+  return (
+    <div className="mt-4">
+      <ThreadList
+        title="User chat threads"
+        threads={threads}
+        openUid={openUid}
+        onOpen={setOpenUid}
+        kind="chat"
+      />
+    </div>
+  );
+}
+
+function ThreadList({
+  title, threads, openUid, onOpen, kind,
+}: { title: string; threads: any[]; openUid: string | null; onOpen: (uid: string | null) => void; kind: "support" | "chat" }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-[280px,1fr]">
+      <div className="glass rounded-xl p-3 space-y-1 max-h-[60vh] overflow-y-auto">
+        <h3 className="px-1 pb-2 text-sm font-semibold text-muted-foreground">{title} ({threads.length})</h3>
+        {threads.length === 0 && <p className="px-2 py-4 text-xs text-muted-foreground">No conversations yet.</p>}
+        {threads.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onOpen(t.user_id || t.id)}
+            className={`w-full rounded-md px-3 py-2 text-left transition hover:bg-secondary ${openUid === (t.user_id || t.id) ? "bg-secondary" : ""}`}
+          >
+            <p className="text-sm font-medium truncate">{t.username || "user"}</p>
+            <p className="text-[10px] text-muted-foreground truncate">UID: {t.user_id || t.id}</p>
+            {t.last_message && <p className="mt-1 truncate text-xs text-muted-foreground">{t.last_message}</p>}
+          </button>
+        ))}
+      </div>
+      <div className="glass rounded-xl p-3 min-h-[60vh] flex flex-col">
+        {openUid ? (
+          <ChatThread uid={openUid} kind={kind} asAdmin />
+        ) : (
+          <div className="m-auto text-sm text-muted-foreground">Select a conversation to read & reply.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Shared chat thread component ---------- */
+
+export function ChatThread({
+  uid, kind, asAdmin,
+}: { uid: string; kind: "support" | "chat"; asAdmin?: boolean }) {
+  const { user } = useAuth();
+  const { userProfile } = useFirebaseAuth();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const messagesCol = kind === "support" ? "support_messages" : "chat_messages";
+  const threadsCol = kind === "support" ? "support_threads" : "chat_threads";
+
+  useEffect(() => {
+    if (!uid) return;
+    const db = getDb();
+    const q = query(collection(db, messagesCol, uid, "messages"), orderBy("created_at_ms", "asc"), limit(200));
+    const unsub = onSnapshot(q, (s) => {
+      setMessages(s.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    });
+    return () => unsub();
+  }, [uid, messagesCol]);
+
+  const send = async () => {
+    if (!text.trim() || !user) return;
+    setSending(true);
+    try {
+      const db = getDb();
+      const now = Date.now();
+      const fromAdmin = !!asAdmin;
+      const senderName = userProfile?.username || userProfile?.name || user.email || "User";
+      const senderUid = user.id;
+      const body = text.trim();
+      await addDoc(collection(db, messagesCol, uid, "messages"), {
+        text: body,
+        from_admin: fromAdmin,
+        sender_uid: senderUid,
+        sender_name: senderName,
+        created_at: serverTimestamp(),
+        created_at_ms: now,
+      });
+      // upsert thread metadata
+      await setDoc(
+        doc(db, threadsCol, uid),
+        {
+          user_id: uid,
+          username: fromAdmin ? undefined : senderName,
+          last_message: body,
+          last_from_admin: fromAdmin,
+          updated_at: serverTimestamp(),
+          created_at_ms: now,
+        },
+        { merge: true },
+      );
+      setText("");
+    } catch (e: any) {
+      toast.error(e?.message || "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-3">
+      <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-border/40 bg-background/40 p-3 max-h-[55vh]">
+        {messages.length === 0 && <p className="text-center text-xs text-muted-foreground">No messages yet. Say hi 👋</p>}
+        {messages.map((m) => {
+          const mine = asAdmin ? m.from_admin : !m.from_admin;
+          return (
+            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${mine ? "bg-[var(--gradient-primary)] text-primary-foreground" : "bg-secondary text-foreground"}`}>
+                <p className="text-[10px] opacity-80">
+                  {m.from_admin ? "Admin" : (m.sender_name || "User")}
+                  {!m.from_admin && asAdmin && <span className="ml-1 opacity-70">· UID {m.sender_uid?.slice(0, 8)}</span>}
+                </p>
+                <p className="whitespace-pre-wrap break-words text-sm">{m.text}</p>
+                <p className="text-[9px] opacity-60">{fmtWhen(m.created_at_ms || m.created_at)}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={asAdmin ? "Reply as admin…" : "Type your message…"}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+        />
+        <Button onClick={send} disabled={sending || !text.trim()} className="bg-[var(--gradient-primary)] glow-primary">
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
