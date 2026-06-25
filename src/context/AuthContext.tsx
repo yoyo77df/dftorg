@@ -222,6 +222,8 @@ export function mapFirebaseError(code: string | undefined): string {
     case "auth/popup-blocked": return "Popup blocked by browser. Allow popups and try again.";
     case "auth/network-request-failed": return "Network error. Check your connection.";
     case "auth/too-many-requests": return "Too many attempts. Please try later.";
+    case "auth/operation-not-allowed": return "Firebase Email/Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.";
+    case "auth/configuration-not-found": return "Firebase Authentication is not enabled for this project. Enable Authentication in Firebase Console.";
     case "auth/unauthorized-domain": return "This domain is not authorized in Firebase. Add it in Console → Authentication → Settings → Authorized domains.";
     default: return "Something went wrong. Please try again.";
   }
