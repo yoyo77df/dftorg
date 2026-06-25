@@ -134,7 +134,11 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     if (name) {
       await updateProfile(cred.user, { displayName: name });
     }
-    await ensureUserDoc(cred.user, name);
+    try {
+      await ensureUserDoc(cred.user, name);
+    } catch (e) {
+      console.warn("User signed up, but Firestore profile write failed", e);
+    }
     setCurrentUser(cred.user);
     setLoading(false);
   };
@@ -142,7 +146,11 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const auth = getFirebaseAuth();
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    await ensureUserDoc(cred.user);
+    try {
+      await ensureUserDoc(cred.user);
+    } catch (e) {
+      console.warn("User signed in, but Firestore profile sync failed", e);
+    }
     setCurrentUser(cred.user);
     setLoading(false);
   };
@@ -150,7 +158,11 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = async () => {
     const auth = getFirebaseAuth();
     const cred = await signInWithPopup(auth, googleProvider);
-    await ensureUserDoc(cred.user);
+    try {
+      await ensureUserDoc(cred.user);
+    } catch (e) {
+      console.warn("Google sign-in succeeded, but Firestore profile sync failed", e);
+    }
     setCurrentUser(cred.user);
     setLoading(false);
   };

@@ -26,7 +26,7 @@ function LoginPage() {
     try {
       await login(email, password);
       toast.success("Welcome back!");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
@@ -39,7 +39,7 @@ function LoginPage() {
     try {
       await loginWithGoogle();
       toast.success("Signed in with Google");
-      navigate({ to: "/profile" });
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
       toast.error(mapFirebaseError(err?.code));
     } finally {
