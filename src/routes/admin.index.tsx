@@ -514,3 +514,95 @@ function UserManager() {
 function isUuid(s: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
+
+function PlayersDirectory() {
+  const [players, setPlayers] = useState<Array<Record<string, any>>>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    const db = getDb();
+    let unsub: (() => void) | null = null;
+    try {
+      const qref = query(collection(db, "users"), orderBy("createdAt", "desc"));
+      unsub = onSnapshot(qref, (snap) => {
+        setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      }, () => {
+        // fallback if no createdAt index
+        const qref2 = collection(db, "users");
+        unsub = onSnapshot(qref2, (snap) => {
+          setPlayers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        });
+      });
+    } catch {
+      setLoading(false);
+    }
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  const filtered = players.filter((p) => {
+    if (!q.trim()) return true;
+    const t = q.toLowerCase();
+    return (
+      (p.username || "").toLowerCase().includes(t) ||
+      (p.name || "").toLowerCase().includes(t) ||
+      (p.email || "").toLowerCase().includes(t) ||
+      (p.uid || p.id || "").toLowerCase().includes(t) ||
+      (p.gaming_uid || "").toLowerCase().includes(t)
+    );
+  });
+
+  const remove = async (uid: string, name: string) => {
+    if (!confirm(`Delete player profile "${name}" from directory? (Auth account not deleted)`)) return;
+    try {
+      await deleteDoc(doc(getDb(), "users", uid));
+      toast.success("Player removed from directory");
+    } catch (e: any) {
+      toast.error(e?.message || "Delete failed");
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="glass rounded-xl p-3 flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by username, email, or UID" />
+        <span className="text-xs text-muted-foreground shrink-0">{filtered.length} / {players.length}</span>
+      </div>
+
+      {loading && <Empty msg="Loading players…" />}
+      {!loading && filtered.length === 0 && <Empty msg="No players registered yet." />}
+
+      <div className="space-y-2">
+        {filtered.map((p) => (
+          <div key={p.id} className="glass rounded-xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold truncate">{p.username || p.name || "Unnamed"}</p>
+                  {p.role && p.role !== "user" && (
+                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] uppercase text-primary">{p.role}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{p.email || "—"}</p>
+                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <span>Auto UID: <code className="text-foreground/80">{p.uid || p.id}</code></span>
+                  <span>Gaming UID: <code className="text-foreground/80">{p.gaming_uid || "—"}</code></span>
+                  <span>Rank: {p.rank || "Rookie"}</span>
+                  <span>Balance: ৳{Number(p.balance || 0).toLocaleString()}</span>
+                  <span>Wins: {p.wins ?? 0}</span>
+                  <span>Matches: {p.matches_played ?? 0}</span>
+                </div>
+              </div>
+              <Button size="sm" variant="destructive" onClick={() => remove(p.id, p.username || p.name || "player")}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
