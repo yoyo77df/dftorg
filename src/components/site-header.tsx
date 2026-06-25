@@ -14,7 +14,7 @@ export function SiteHeader() {
             <Gamepad2 className="h-5 w-5 text-primary-foreground" />
           </span>
           <span className="text-lg">
-            DFT <span className="text-gradient">ORG.</span>
+            <span className="text-gradient">FFBPL MATCH</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
