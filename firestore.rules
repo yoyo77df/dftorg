@@ -55,27 +55,43 @@ service cloud.firestore {
         && isSelf(request.resource.data.user_id)
         && request.resource.data.status == 'pending'
         && request.resource.data.amount is number
-        && request.resource.data.amount > 0;
+        && request.resource.data.amount > 0
+        && request.resource.data.amount <=
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance;
       allow update, delete: if isAdmin();
     }
 
     // ---------- TOURNAMENTS ----------
     match /tournaments/{id} {
-      allow read: if true; // public listings
+      // Public listing — do NOT store room_id/room_password on this doc.
+      allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
 
-      // Participants: visible to self, admin, or co-participants of the same tournament
-      match /participants/{pid} {
-        allow read: if isSignedIn();
-        allow create: if isSelf(request.resource.data.user_id);
-        allow update, delete: if isAdmin();
-      }
+    // Top-level participants collection (doc id = `${tournamentId}_${uid}`)
+    match /tournament_participants/{pid} {
+      allow read: if isSignedIn() &&
+        (isSelf(resource.data.user_id) || isAdmin());
+      allow create: if isSelf(request.resource.data.user_id);
+      allow update, delete: if isAdmin();
+    }
+
+    // Room credentials — only joined participants or admins may read.
+    match /tournament_secrets/{tid} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/tournament_participants/$(tid + '_' + request.auth.uid))
+      );
+      allow write: if isAdmin();
     }
 
     // ---------- NOTIFICATIONS ----------
     match /notifications/{id} {
-      allow read, update: if isSignedIn() &&
+      allow read: if isSignedIn() &&
         (resource.data.user_id == null || isSelf(resource.data.user_id) || isAdmin());
+      // Broadcast notifications (user_id == null) may only be updated by admins.
+      allow update: if isSignedIn() &&
+        (isSelf(resource.data.user_id) || isAdmin());
       allow create, delete: if isAdmin();
     }
 
