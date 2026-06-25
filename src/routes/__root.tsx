@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { FirebaseAuthProvider } from "@/context/AuthContext";
 import { useEffect } from "react";
-import { applyTheme } from "@/routes/admin.index";
+import { applyTheme, getSavedTheme, subscribePublicTheme } from "@/lib/themes";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -141,8 +141,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("dft.theme") : null;
+    const saved = getSavedTheme();
     if (saved && saved !== "none") applyTheme(saved);
+    // public theme broadcast — admin choice overrides for everyone
+    const unsub = subscribePublicTheme();
+    return () => unsub();
   }, []);
 
   return (

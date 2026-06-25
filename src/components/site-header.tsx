@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LayoutDashboard, Trophy, Wallet, User as UserIcon, Shield, LogOut, Gamepad2 } from "lucide-react";
+import { LayoutDashboard, Trophy, Wallet, User as UserIcon, Shield, LogOut, Gamepad2, LifeBuoy, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -22,6 +22,8 @@ export function SiteHeader() {
           <NavLink to="/tournaments" icon={<Trophy className="h-4 w-4" />} label="Tournaments" />
           {user && <NavLink to="/wallet" icon={<Wallet className="h-4 w-4" />} label="Wallet" />}
           {user && <NavLink to="/profile" icon={<UserIcon className="h-4 w-4" />} label="Profile" />}
+          {user && <NavLink to="/support" icon={<LifeBuoy className="h-4 w-4" />} label="Support" />}
+          {user && <NavLink to="/chat" icon={<MessageSquare className="h-4 w-4" />} label="Chat" />}
           {isAdmin && <NavLink to="/admin" icon={<Shield className="h-4 w-4" />} label="Admin" />}
         </nav>
         <div className="flex items-center gap-2">

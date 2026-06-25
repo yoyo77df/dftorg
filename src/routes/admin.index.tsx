@@ -1,16 +1,23 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, Users, Ban, Gift, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Send, Link as LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, increment } from "firebase/firestore";
+import {
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, increment,
+  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where,
+} from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import { ALL_PRESETS, FAVORITE_PRESETS, applyTheme, setPublicTheme, type ThemePreset } from "@/lib/themes";
+
+// applyTheme re-exported from "@/lib/themes" via import above
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -32,23 +39,21 @@ function AdminPage() {
     if (!loading && (!user || !isAdmin)) navigate({ to: "/dashboard" });
   }, [user, isAdmin, loading, navigate]);
 
-  const { data: pendingDeposits } = useQuery({
-    queryKey: ["admin-deposits"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase.from("deposits").select("*").eq("status", "pending").order("created_at");
-      return data ?? [];
-    },
-  });
+  const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+  const [allTxns, setAllTxns] = useState<any[]>([]);
 
-  const { data: pendingWithdrawals } = useQuery({
-    queryKey: ["admin-withdrawals"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase.from("withdrawals").select("*").eq("status", "pending").order("created_at");
-      return data ?? [];
-    },
-  });
+  useEffect(() => {
+    if (!isAdmin) return;
+    const db = getDb();
+    const u1 = onSnapshot(query(collection(db, "deposits"), where("status", "==", "pending")), (s) =>
+      setPendingDeposits(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedAsc)));
+    const u2 = onSnapshot(query(collection(db, "withdrawals"), where("status", "==", "pending")), (s) =>
+      setPendingWithdrawals(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedAsc)));
+    const u3 = onSnapshot(query(collection(db, "wallet_transactions"), limit(500)), (s) =>
+      setAllTxns(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)));
+    return () => { u1(); u2(); u3(); };
+  }, [isAdmin]);
 
   const { data: allTournaments } = useQuery({
     queryKey: ["admin-tournaments"],
@@ -59,42 +64,41 @@ function AdminPage() {
     },
   });
 
-  const { data: allTxns } = useQuery({
-    queryKey: ["admin-all-txns"],
-    enabled: isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("wallet_transactions")
-        .select("id, user_id, type, amount, description, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
-    },
-  });
-
-  const approveDeposit = async (id: string) => {
-    const { error } = await supabase.rpc("approve_deposit", { _deposit_id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Deposit approved");
-    qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+  const approveDeposit = async (d: any) => {
+    try {
+      const db = getDb();
+      await updateDoc(doc(db, "users", d.user_id), { balance: increment(Number(d.amount)) });
+      await updateDoc(doc(db, "deposits", d.id), { status: "approved", reviewed_at: serverTimestamp() });
+      await addDoc(collection(db, "wallet_transactions"), {
+        user_id: d.user_id, type: "deposit", amount: Number(d.amount),
+        description: `${d.method} deposit approved`, created_at: serverTimestamp(), created_at_ms: Date.now(),
+      });
+      toast.success("Deposit approved");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
-  const approveWithdrawal = async (id: string) => {
-    const { error } = await supabase.rpc("approve_withdrawal", { _withdrawal_id: id });
-    if (error) return toast.error(error.message);
-    toast.success("Withdrawal approved");
-    qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+  const approveWithdrawal = async (w: any) => {
+    try {
+      const db = getDb();
+      const uref = doc(db, "users", w.user_id);
+      const snap = await getDoc(uref);
+      const bal = Number((snap.data() as any)?.balance ?? 0);
+      if (bal < Number(w.amount)) return toast.error("User has insufficient balance");
+      await updateDoc(uref, { balance: increment(-Number(w.amount)) });
+      await updateDoc(doc(db, "withdrawals", w.id), { status: "approved", reviewed_at: serverTimestamp() });
+      await addDoc(collection(db, "wallet_transactions"), {
+        user_id: w.user_id, type: "withdrawal", amount: -Number(w.amount),
+        description: `${w.method} withdrawal to ${w.phone}`, created_at: serverTimestamp(), created_at_ms: Date.now(),
+      });
+      toast.success("Withdrawal approved");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectDeposit = async (id: string) => {
-    const { error } = await supabase.from("deposits").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Rejected");
-    qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+    try { await updateDoc(doc(getDb(), "deposits", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    catch (e: any) { toast.error(e?.message || "Failed"); }
   };
   const rejectWithdrawal = async (id: string) => {
-    const { error } = await supabase.from("withdrawals").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Rejected");
-    qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+    try { await updateDoc(doc(getDb(), "withdrawals", id), { status: "rejected", reviewed_at: serverTimestamp() }); toast.success("Rejected"); }
+    catch (e: any) { toast.error(e?.message || "Failed"); }
   };
 
   const [creating, setCreating] = useState(false);
@@ -132,12 +136,13 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
           <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
-          <TabsTrigger value="users"><Users className="mr-1 h-3 w-3" /> Users</TabsTrigger>
+          <TabsTrigger value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
+          <TabsTrigger value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
           <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
           <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
           <TabsTrigger value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
@@ -148,15 +153,13 @@ function AdminPage() {
           {(pendingDeposits ?? []).map((d) => (
             <Row key={d.id}
               title={`৳${d.amount} via ${d.method}`}
-              sub={`${d.phone} · TXN: ${d.transaction_id}`}
-              onApprove={() => approveDeposit(d.id)}
+              sub={`${d.username || ""} · ${d.phone} · TXN: ${d.transaction_id}`}
+              onApprove={() => approveDeposit(d)}
               onReject={() => rejectDeposit(d.id)}
               onDelete={async () => {
                 if (!confirm("Delete this deposit record?")) return;
-                const { error } = await supabase.from("deposits").delete().eq("id", d.id);
-                if (error) return toast.error(error.message);
-                toast.success("Deleted");
-                qc.invalidateQueries({ queryKey: ["admin-deposits"] });
+                try { await deleteDoc(doc(getDb(), "deposits", d.id)); toast.success("Deleted"); }
+                catch (e: any) { toast.error(e?.message || "Failed"); }
               }} />
           ))}
         </TabsContent>
@@ -166,15 +169,13 @@ function AdminPage() {
           {(pendingWithdrawals ?? []).map((w) => (
             <Row key={w.id}
               title={`৳${w.amount} via ${w.method}`}
-              sub={`Send to ${w.phone}`}
-              onApprove={() => approveWithdrawal(w.id)}
+              sub={`${w.username || ""} · Send to ${w.phone}`}
+              onApprove={() => approveWithdrawal(w)}
               onReject={() => rejectWithdrawal(w.id)}
               onDelete={async () => {
                 if (!confirm("Delete this withdrawal record?")) return;
-                const { error } = await supabase.from("withdrawals").delete().eq("id", w.id);
-                if (error) return toast.error(error.message);
-                toast.success("Deleted");
-                qc.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+                try { await deleteDoc(doc(getDb(), "withdrawals", w.id)); toast.success("Deleted"); }
+                catch (e: any) { toast.error(e?.message || "Failed"); }
               }} />
           ))}
         </TabsContent>
@@ -186,8 +187,12 @@ function AdminPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="users">
-          <UserManager />
+        <TabsContent value="support">
+          <SupportAdmin />
+        </TabsContent>
+
+        <TabsContent value="chat">
+          <ChatAdmin />
         </TabsContent>
 
         <TabsContent value="players">
@@ -205,7 +210,7 @@ function AdminPage() {
             return (
               <div key={t.id} className="glass flex items-center justify-between gap-3 rounded-xl p-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold capitalize">{t.type.replace(/_/g, " ")}</p>
+                  <p className="text-sm font-semibold capitalize">{String(t.type || "").replace(/_/g, " ")}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.description ?? "—"}</p>
                   <code className="text-[10px] text-muted-foreground">UID: {t.user_id}</code>
                 </div>
@@ -214,14 +219,12 @@ function AdminPage() {
                     <p className={`font-bold ${positive ? "text-primary" : "text-destructive"}`}>
                       {positive ? "+" : ""}৳{Number(t.amount).toLocaleString()}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">{fmtWhen(t.created_at_ms || t.created_at)}</p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={async () => {
                     if (!confirm("Delete this transaction record?")) return;
-                    const { error } = await supabase.from("wallet_transactions").delete().eq("id", t.id);
-                    if (error) return toast.error(error.message);
-                    toast.success("Deleted");
-                    qc.invalidateQueries({ queryKey: ["admin-all-txns"] });
+                    try { await deleteDoc(doc(getDb(), "wallet_transactions", t.id)); toast.success("Deleted"); }
+                    catch (e: any) { toast.error(e?.message || "Failed"); }
                   }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
@@ -382,144 +385,6 @@ function TournamentRow({ t, qc }: { t: any; qc: ReturnType<typeof useQueryClient
   );
 }
 
-function UserManager() {
-  const qc = useQueryClient();
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [prize, setPrize] = useState("");
-  const [removeAmt, setRemoveAmt] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const search = async () => {
-    if (!q.trim()) return;
-    setSearching(true);
-    const term = q.trim();
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, gaming_uid, country, earnings, is_banned, wins, matches_played")
-      .or(`gaming_uid.ilike.%${term}%,username.ilike.%${term}%,id.eq.${isUuid(term) ? term : "00000000-0000-0000-0000-000000000000"}`)
-      .limit(20);
-    setResults(data ?? []);
-    setSearching(false);
-  };
-
-  const loadWallet = async (uid: string) => {
-    const { data } = await supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle();
-    return data?.balance ?? 0;
-  };
-
-  const [bal, setBal] = useState<number | null>(null);
-  useEffect(() => {
-    if (selected) loadWallet(selected.id).then(setBal);
-    else setBal(null);
-  }, [selected]);
-
-  const addPrize = async () => {
-    const amt = Number(prize);
-    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
-    setBusy(true);
-    const { error } = await supabase.rpc("admin_add_prize", { _user_id: selected.id, _amount: amt, _note: "Prize money" });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success(`৳${amt} prize added`);
-    setPrize("");
-    loadWallet(selected.id).then(setBal);
-    qc.invalidateQueries();
-  };
-
-  const removeMoney = async () => {
-    const amt = Number(removeAmt);
-    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
-    if (!confirm(`Remove ৳${amt} from ${selected.username}'s wallet?`)) return;
-    setBusy(true);
-    const { error } = await supabase.rpc("admin_remove_money" as any, { _user_id: selected.id, _amount: amt, _note: "Admin deduction" });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success(`৳${amt} removed`);
-    setRemoveAmt("");
-    loadWallet(selected.id).then(setBal);
-    qc.invalidateQueries();
-  };
-
-  const toggleBan = async () => {
-    setBusy(true);
-    const { error } = await supabase.rpc("admin_set_ban", { _user_id: selected.id, _banned: !selected.is_banned });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success(selected.is_banned ? "Account unbanned" : "Account banned");
-    setSelected({ ...selected, is_banned: !selected.is_banned });
-    setResults((r) => r.map((u) => (u.id === selected.id ? { ...u, is_banned: !selected.is_banned } : u)));
-  };
-
-  return (
-    <div className="mt-4 space-y-4">
-      <div className="glass rounded-xl p-4">
-        <Label>Search by Gaming UID, username, or User ID</Label>
-        <div className="mt-2 flex gap-2">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. 1234567890 or playername"
-            onKeyDown={(e) => e.key === "Enter" && search()} />
-          <Button onClick={search} disabled={searching} className="bg-[var(--gradient-primary)] glow-primary">
-            <Search className="mr-1 h-3 w-3" /> {searching ? "…" : "Search"}
-          </Button>
-        </div>
-      </div>
-
-      {results.length > 0 && (
-        <div className="space-y-2">
-          {results.map((u) => (
-            <button key={u.id} onClick={() => setSelected(u)}
-              className={`glass w-full rounded-xl p-3 text-left transition hover:glow-primary ${selected?.id === u.id ? "neon-border" : ""}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">{u.username} {u.is_banned && <span className="ml-1 text-xs text-destructive">[BANNED]</span>}</p>
-                  <p className="text-xs text-muted-foreground">UID: {u.gaming_uid ?? "—"} · {u.wins}W / {u.matches_played}M · ৳{Number(u.earnings).toLocaleString()}</p>
-                </div>
-                <code className="text-[10px] text-muted-foreground">{u.id.slice(0, 8)}…</code>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {selected && (
-        <div className="glass neon-border rounded-xl p-4 space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Selected user</p>
-            <p className="font-bold">{selected.username}</p>
-            <p className="text-xs">Wallet: <b>৳{Number(bal ?? 0).toLocaleString()}</b> · Earnings: ৳{Number(selected.earnings).toLocaleString()}</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1"><Gift className="h-3 w-3" /> Add prize money</Label>
-            <div className="flex gap-2">
-              <Input type="number" min="1" value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="৳ amount" />
-              <Button onClick={addPrize} disabled={busy} className="bg-[var(--gradient-primary)] glow-primary">Credit</Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1"><Minus className="h-3 w-3" /> Remove money</Label>
-            <div className="flex gap-2">
-              <Input type="number" min="1" value={removeAmt} onChange={(e) => setRemoveAmt(e.target.value)} placeholder="৳ amount" />
-              <Button onClick={removeMoney} disabled={busy} className="bg-[var(--gradient-primary)] glow-primary">Debit</Button>
-            </div>
-          </div>
-
-          <Button variant={selected.is_banned ? "outline" : "destructive"} onClick={toggleBan} disabled={busy} className="w-full">
-            <Ban className="mr-1 h-3 w-3" /> {selected.is_banned ? "Unban account" : "Ban account"}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function isUuid(s: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-}
-
 function PlayersDirectory() {
   const [players, setPlayers] = useState<Array<Record<string, any>>>([]);
   const [loading, setLoading] = useState(true);
@@ -643,224 +508,362 @@ function PlayersDirectory() {
   );
 }
 
-/* ---------- Theme Manager ---------- */
+/* ---------- Helpers ---------- */
 
-type ThemePreset = {
-  id: string;
-  name: string;
-  swatch: string[];
-  vars: Record<string, string>;
-};
-
-const THEME_PRESETS: ThemePreset[] = [
-  {
-    id: "dark-red",
-    name: "Dark + Red",
-    swatch: ["#0d0606", "#1a0808", "#e11d2b", "#ff5566"],
-    vars: {
-      "--background": "oklch(0.13 0.05 25)",
-      "--foreground": "oklch(0.97 0.01 20)",
-      "--card": "oklch(0.18 0.06 25 / 0.6)",
-      "--card-foreground": "oklch(0.97 0.01 20)",
-      "--popover": "oklch(0.16 0.06 25)",
-      "--popover-foreground": "oklch(0.97 0.01 20)",
-      "--primary": "oklch(0.62 0.24 25)",
-      "--primary-foreground": "oklch(0.99 0 0)",
-      "--primary-glow": "oklch(0.75 0.2 25)",
-      "--secondary": "oklch(0.22 0.06 25)",
-      "--muted": "oklch(0.22 0.05 25)",
-      "--muted-foreground": "oklch(0.72 0.04 20)",
-      "--accent": "oklch(0.7 0.2 30)",
-      "--accent-foreground": "oklch(0.13 0.05 25)",
-      "--border": "oklch(0.32 0.08 25 / 0.6)",
-      "--input": "oklch(0.22 0.06 25)",
-      "--ring": "oklch(0.62 0.24 25)",
-      "--gradient-primary": "linear-gradient(135deg, oklch(0.62 0.24 25), oklch(0.55 0.22 15))",
-      "--gradient-hero": "radial-gradient(ellipse at top, oklch(0.32 0.2 25 / 0.6), transparent 60%), linear-gradient(180deg, oklch(0.13 0.05 25), oklch(0.08 0.04 20))",
-      "--shadow-neon": "0 0 40px oklch(0.62 0.24 25 / 0.45)",
-    },
-  },
-  {
-    id: "dark-green",
-    name: "Dark + Green",
-    swatch: ["#06120c", "#0a1f15", "#22c55e", "#86efac"],
-    vars: {
-      "--background": "oklch(0.13 0.05 150)",
-      "--foreground": "oklch(0.97 0.01 150)",
-      "--card": "oklch(0.18 0.06 150 / 0.6)",
-      "--card-foreground": "oklch(0.97 0.01 150)",
-      "--popover": "oklch(0.16 0.06 150)",
-      "--popover-foreground": "oklch(0.97 0.01 150)",
-      "--primary": "oklch(0.7 0.2 150)",
-      "--primary-foreground": "oklch(0.1 0.04 150)",
-      "--primary-glow": "oklch(0.82 0.18 150)",
-      "--secondary": "oklch(0.22 0.06 150)",
-      "--muted": "oklch(0.22 0.05 150)",
-      "--muted-foreground": "oklch(0.72 0.04 150)",
-      "--accent": "oklch(0.78 0.16 180)",
-      "--accent-foreground": "oklch(0.13 0.05 150)",
-      "--border": "oklch(0.3 0.08 150 / 0.6)",
-      "--input": "oklch(0.22 0.06 150)",
-      "--ring": "oklch(0.7 0.2 150)",
-      "--gradient-primary": "linear-gradient(135deg, oklch(0.7 0.2 150), oklch(0.78 0.16 180))",
-      "--gradient-hero": "radial-gradient(ellipse at top, oklch(0.32 0.18 150 / 0.6), transparent 60%), linear-gradient(180deg, oklch(0.13 0.05 150), oklch(0.08 0.04 150))",
-      "--shadow-neon": "0 0 40px oklch(0.7 0.2 150 / 0.4)",
-    },
-  },
-  {
-    id: "dark-blue",
-    name: "Dark + Blue",
-    swatch: ["#070a16", "#0c1430", "#3b82f6", "#93c5fd"],
-    vars: {
-      "--background": "oklch(0.12 0.05 260)",
-      "--foreground": "oklch(0.97 0.01 260)",
-      "--card": "oklch(0.18 0.06 260 / 0.6)",
-      "--card-foreground": "oklch(0.97 0.01 260)",
-      "--popover": "oklch(0.16 0.06 260)",
-      "--popover-foreground": "oklch(0.97 0.01 260)",
-      "--primary": "oklch(0.62 0.22 260)",
-      "--primary-foreground": "oklch(0.99 0 0)",
-      "--primary-glow": "oklch(0.75 0.18 260)",
-      "--secondary": "oklch(0.22 0.06 260)",
-      "--muted": "oklch(0.22 0.05 260)",
-      "--muted-foreground": "oklch(0.72 0.04 260)",
-      "--accent": "oklch(0.78 0.16 220)",
-      "--accent-foreground": "oklch(0.12 0.05 260)",
-      "--border": "oklch(0.3 0.08 260 / 0.6)",
-      "--input": "oklch(0.22 0.06 260)",
-      "--ring": "oklch(0.62 0.22 260)",
-      "--gradient-primary": "linear-gradient(135deg, oklch(0.62 0.22 260), oklch(0.78 0.16 220))",
-      "--gradient-hero": "radial-gradient(ellipse at top, oklch(0.32 0.18 260 / 0.6), transparent 60%), linear-gradient(180deg, oklch(0.12 0.05 260), oklch(0.08 0.04 260))",
-      "--shadow-neon": "0 0 40px oklch(0.62 0.22 260 / 0.4)",
-    },
-  },
-  {
-    id: "midnight-gold",
-    name: "Midnight + Gold",
-    swatch: ["#0a0a0a", "#1c1404", "#f5b800", "#fde68a"],
-    vars: {
-      "--background": "oklch(0.1 0.02 80)",
-      "--foreground": "oklch(0.97 0.02 80)",
-      "--card": "oklch(0.16 0.04 80 / 0.6)",
-      "--card-foreground": "oklch(0.97 0.02 80)",
-      "--popover": "oklch(0.14 0.04 80)",
-      "--popover-foreground": "oklch(0.97 0.02 80)",
-      "--primary": "oklch(0.82 0.17 85)",
-      "--primary-foreground": "oklch(0.13 0.02 80)",
-      "--primary-glow": "oklch(0.9 0.15 85)",
-      "--secondary": "oklch(0.2 0.04 80)",
-      "--muted": "oklch(0.2 0.03 80)",
-      "--muted-foreground": "oklch(0.7 0.04 80)",
-      "--accent": "oklch(0.78 0.17 60)",
-      "--accent-foreground": "oklch(0.13 0.02 80)",
-      "--border": "oklch(0.3 0.06 80 / 0.6)",
-      "--input": "oklch(0.2 0.04 80)",
-      "--ring": "oklch(0.82 0.17 85)",
-      "--gradient-primary": "linear-gradient(135deg, oklch(0.82 0.17 85), oklch(0.7 0.17 60))",
-      "--gradient-hero": "radial-gradient(ellipse at top, oklch(0.3 0.1 85 / 0.5), transparent 60%), linear-gradient(180deg, oklch(0.1 0.02 80), oklch(0.07 0.02 80))",
-      "--shadow-neon": "0 0 40px oklch(0.82 0.17 85 / 0.4)",
-    },
-  },
-  {
-    id: "neon-pink",
-    name: "Neon Pink",
-    swatch: ["#10010a", "#240118", "#ec4899", "#f9a8d4"],
-    vars: {
-      "--background": "oklch(0.13 0.06 340)",
-      "--foreground": "oklch(0.97 0.01 340)",
-      "--card": "oklch(0.18 0.07 340 / 0.6)",
-      "--card-foreground": "oklch(0.97 0.01 340)",
-      "--popover": "oklch(0.16 0.07 340)",
-      "--popover-foreground": "oklch(0.97 0.01 340)",
-      "--primary": "oklch(0.68 0.24 340)",
-      "--primary-foreground": "oklch(0.99 0 0)",
-      "--primary-glow": "oklch(0.8 0.2 340)",
-      "--secondary": "oklch(0.22 0.07 340)",
-      "--muted": "oklch(0.22 0.05 340)",
-      "--muted-foreground": "oklch(0.72 0.04 340)",
-      "--accent": "oklch(0.75 0.2 300)",
-      "--accent-foreground": "oklch(0.13 0.06 340)",
-      "--border": "oklch(0.32 0.08 340 / 0.6)",
-      "--input": "oklch(0.22 0.07 340)",
-      "--ring": "oklch(0.68 0.24 340)",
-      "--gradient-primary": "linear-gradient(135deg, oklch(0.68 0.24 340), oklch(0.75 0.2 300))",
-      "--gradient-hero": "radial-gradient(ellipse at top, oklch(0.34 0.2 340 / 0.6), transparent 60%), linear-gradient(180deg, oklch(0.13 0.06 340), oklch(0.09 0.05 340))",
-      "--shadow-neon": "0 0 40px oklch(0.68 0.24 340 / 0.45)",
-    },
-  },
-];
-
-const THEME_STORAGE_KEY = "dft.theme";
-
-export function applyTheme(id: string | null) {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  const known = new Set<string>();
-  THEME_PRESETS.forEach((p) => Object.keys(p.vars).forEach((k) => known.add(k)));
-  known.forEach((k) => root.style.removeProperty(k));
-  if (!id || id === "none") {
-    localStorage.removeItem(THEME_STORAGE_KEY);
-    return;
-  }
-  const preset = THEME_PRESETS.find((p) => p.id === id);
-  if (!preset) return;
-  Object.entries(preset.vars).forEach(([k, v]) => root.style.setProperty(k, v));
-  localStorage.setItem(THEME_STORAGE_KEY, id);
+function tsMs(v: any): number {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v?.toMillis === "function") return v.toMillis();
+  if (typeof v?.seconds === "number") return v.seconds * 1000;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
+}
+function byCreatedDesc(a: any, b: any) {
+  return tsMs(b.created_at_ms ?? b.created_at) - tsMs(a.created_at_ms ?? a.created_at);
+}
+function byCreatedAsc(a: any, b: any) {
+  return tsMs(a.created_at_ms ?? a.created_at) - tsMs(b.created_at_ms ?? b.created_at);
+}
+function fmtWhen(v: any): string {
+  const ms = tsMs(v);
+  return ms ? new Date(ms).toLocaleString() : "—";
 }
 
-function ThemeManager() {
-  const [active, setActive] = useState<string>(() =>
-    typeof window !== "undefined" ? localStorage.getItem(THEME_STORAGE_KEY) || "none" : "none",
-  );
+/* ---------- Theme Manager (public, broadcast to all users) ---------- */
 
-  const pick = (id: string) => {
-    applyTheme(id === "none" ? null : id);
-    setActive(id);
-    toast.success(id === "none" ? "Default theme restored" : `Theme applied: ${id}`);
+function ThemeManager() {
+  const [active, setActive] = useState<string>("none");
+  const [filter, setFilter] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    const unsub = onSnapshot(doc(db, "app_settings", "theme"), (s) => {
+      const id = (s.data() as any)?.id;
+      setActive(id || "none");
+    });
+    return () => unsub();
+  }, []);
+
+  const pick = async (id: string) => {
+    setSaving(true);
+    try {
+      await setPublicTheme(id === "none" ? null : id);
+      setActive(id);
+      toast.success(id === "none" ? "Default theme restored for everyone" : `Theme broadcast to all users`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save theme");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return ALL_PRESETS;
+    return ALL_PRESETS.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+  }, [filter]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="glass neon-border rounded-xl p-4 space-y-2">
+        <p className="text-sm">
+          Pick a theme — it will instantly recolor the website <b>for every visitor</b>.
+          Choose <b>None</b> to restore the original Cyber Violet look.
+        </p>
+        <p className="text-xs text-muted-foreground">{ALL_PRESETS.length} themes available · {FAVORITE_PRESETS.length} favorites pinned at top</p>
+        <div className="flex gap-2">
+          <Input placeholder="Filter themes (e.g. neon, dark, blue)…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <Button variant="outline" disabled={saving} onClick={() => pick("none")}>Reset to default</Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ThemeCard
+          active={active === "none"}
+          onClick={() => pick("none")}
+          name="None (Default)"
+          subtitle="Cyber Violet — original"
+          swatch={["#1a0d2e", "#7c3aed", "#22d3ee", "#f5f3ff"]}
+        />
+        {filtered.map((p) => (
+          <ThemeCard
+            key={p.id}
+            active={active === p.id}
+            onClick={() => pick(p.id)}
+            name={p.name}
+            subtitle={p.id}
+            swatch={p.swatch}
+            preset={p}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeCard({
+  active, onClick, name, subtitle, swatch, preset,
+}: { active: boolean; onClick: () => void; name: string; subtitle: string; swatch: string[]; preset?: ThemePreset }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`glass rounded-xl p-4 text-left transition hover:glow-primary ${active ? "neon-border" : ""}`}
+    >
+      <p className="font-semibold truncate">{name}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>
+      <div className="mt-3 flex h-10 overflow-hidden rounded-lg">
+        {swatch.map((c, i) => (
+          <div key={i} className="flex-1" style={{ background: c }} />
+        ))}
+      </div>
+      {preset && (
+        <div
+          className="mt-3 rounded-lg p-3 text-xs"
+          style={{
+            background: swatch[1],
+            color: swatch[3],
+            border: `1px solid ${swatch[2]}`,
+          }}
+        >
+          <span style={{ color: swatch[2], fontWeight: 700 }}>DFT ORG.</span> sample card
+        </div>
+      )}
+    </button>
+  );
+}
+
+/* ---------- Support (admin): manage links + 1-to-1 chat threads ---------- */
+
+function SupportAdmin() {
+  const [link, setLink] = useState("");
+  const [label, setLabel] = useState("");
+  const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);
+  const [threads, setThreads] = useState<any[]>([]);
+  const [openUid, setOpenUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const db = getDb();
+    const u1 = onSnapshot(doc(db, "app_settings", "support"), (s) => {
+      setLinks(((s.data() as any)?.links as any[]) || []);
+    });
+    const u2 = onSnapshot(collection(db, "support_threads"), (s) => {
+      setThreads(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc));
+    });
+    return () => { u1(); u2(); };
+  }, []);
+
+  const addLink = async () => {
+    if (!link.trim()) return toast.error("Enter a URL");
+    try {
+      await setDoc(
+        doc(getDb(), "app_settings", "support"),
+        { links: arrayUnion({ label: label.trim() || link.trim(), url: link.trim() }) },
+        { merge: true },
+      );
+      setLink(""); setLabel("");
+      toast.success("Link added — visible to all users");
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+  };
+
+  const removeLink = async (l: { label: string; url: string }) => {
+    try {
+      await setDoc(doc(getDb(), "app_settings", "support"), { links: arrayRemove(l) }, { merge: true });
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="glass neon-border rounded-xl p-4">
-        <p className="text-sm">Select a preset to recolor the entire website. Choose <b>None</b> to restore the original look. Saved on this device.</p>
+      <div className="glass rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <LinkIcon className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">Support links</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">Links shown to every user on their Support page (Facebook, WhatsApp, Telegram, etc.).</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Input placeholder="Label (e.g. WhatsApp)" value={label} onChange={(e) => setLabel(e.target.value)} />
+          <Input className="col-span-2" placeholder="https://wa.me/8801957941250" value={link} onChange={(e) => setLink(e.target.value)} />
+        </div>
+        <Button onClick={addLink} className="bg-[var(--gradient-primary)] glow-primary"><Plus className="mr-1 h-3 w-3" /> Add link</Button>
+        <div className="space-y-1">
+          {links.length === 0 && <p className="text-xs text-muted-foreground">No links yet.</p>}
+          {links.map((l, i) => (
+            <div key={i} className="flex items-center justify-between rounded-md border border-border/40 p-2 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium truncate">{l.label}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{l.url}</p>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => removeLink(l)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <button
-          onClick={() => pick("none")}
-          className={`glass rounded-xl p-4 text-left transition hover:glow-primary ${active === "none" ? "neon-border" : ""}`}
-        >
-          <p className="font-semibold">None (Default)</p>
-          <p className="text-xs text-muted-foreground">Cyber Violet — original</p>
-          <div className="mt-3 flex h-10 overflow-hidden rounded-lg">
-            <div className="flex-1" style={{ background: "#1a0d2e" }} />
-            <div className="flex-1" style={{ background: "#7c3aed" }} />
-            <div className="flex-1" style={{ background: "#22d3ee" }} />
-            <div className="flex-1" style={{ background: "#f5f3ff" }} />
-          </div>
-        </button>
+      <ThreadList
+        title="Support conversations"
+        threads={threads}
+        openUid={openUid}
+        onOpen={setOpenUid}
+        kind="support"
+      />
+    </div>
+  );
+}
 
-        {THEME_PRESETS.map((p) => (
+/* ---------- Chat (admin): public chat threads ---------- */
+
+function ChatAdmin() {
+  const [threads, setThreads] = useState<any[]>([]);
+  const [openUid, setOpenUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    const db = getDb();
+    const u = onSnapshot(collection(db, "chat_threads"), (s) => {
+      setThreads(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc));
+    });
+    return () => u();
+  }, []);
+
+  return (
+    <div className="mt-4">
+      <ThreadList
+        title="User chat threads"
+        threads={threads}
+        openUid={openUid}
+        onOpen={setOpenUid}
+        kind="chat"
+      />
+    </div>
+  );
+}
+
+function ThreadList({
+  title, threads, openUid, onOpen, kind,
+}: { title: string; threads: any[]; openUid: string | null; onOpen: (uid: string | null) => void; kind: "support" | "chat" }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-[280px,1fr]">
+      <div className="glass rounded-xl p-3 space-y-1 max-h-[60vh] overflow-y-auto">
+        <h3 className="px-1 pb-2 text-sm font-semibold text-muted-foreground">{title} ({threads.length})</h3>
+        {threads.length === 0 && <p className="px-2 py-4 text-xs text-muted-foreground">No conversations yet.</p>}
+        {threads.map((t) => (
           <button
-            key={p.id}
-            onClick={() => pick(p.id)}
-            className={`glass rounded-xl p-4 text-left transition hover:glow-primary ${active === p.id ? "neon-border" : ""}`}
+            key={t.id}
+            onClick={() => onOpen(t.user_id || t.id)}
+            className={`w-full rounded-md px-3 py-2 text-left transition hover:bg-secondary ${openUid === (t.user_id || t.id) ? "bg-secondary" : ""}`}
           >
-            <p className="font-semibold">{p.name}</p>
-            <p className="text-xs text-muted-foreground">Preview</p>
-            <div className="mt-3 flex h-10 overflow-hidden rounded-lg">
-              {p.swatch.map((c, i) => (
-                <div key={i} className="flex-1" style={{ background: c }} />
-              ))}
-            </div>
-            <div
-              className="mt-3 rounded-lg p-3 text-xs"
-              style={{ background: p.swatch[1], color: p.swatch[3], border: `1px solid ${p.swatch[2]}` }}
-            >
-              <span style={{ color: p.swatch[2], fontWeight: 700 }}>DFT ORG.</span> sample card
-            </div>
+            <p className="text-sm font-medium truncate">{t.username || "user"}</p>
+            <p className="text-[10px] text-muted-foreground truncate">UID: {t.user_id || t.id}</p>
+            {t.last_message && <p className="mt-1 truncate text-xs text-muted-foreground">{t.last_message}</p>}
           </button>
         ))}
+      </div>
+      <div className="glass rounded-xl p-3 min-h-[60vh] flex flex-col">
+        {openUid ? (
+          <ChatThread uid={openUid} kind={kind} asAdmin />
+        ) : (
+          <div className="m-auto text-sm text-muted-foreground">Select a conversation to read & reply.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Shared chat thread component ---------- */
+
+export function ChatThread({
+  uid, kind, asAdmin,
+}: { uid: string; kind: "support" | "chat"; asAdmin?: boolean }) {
+  const { user } = useAuth();
+  const { userProfile } = useFirebaseAuth();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const messagesCol = kind === "support" ? "support_messages" : "chat_messages";
+  const threadsCol = kind === "support" ? "support_threads" : "chat_threads";
+
+  useEffect(() => {
+    if (!uid) return;
+    const db = getDb();
+    const q = query(collection(db, messagesCol, uid, "messages"), orderBy("created_at_ms", "asc"), limit(200));
+    const unsub = onSnapshot(q, (s) => {
+      setMessages(s.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    });
+    return () => unsub();
+  }, [uid, messagesCol]);
+
+  const send = async () => {
+    if (!text.trim() || !user) return;
+    setSending(true);
+    try {
+      const db = getDb();
+      const now = Date.now();
+      const fromAdmin = !!asAdmin;
+      const senderName = userProfile?.username || userProfile?.name || user.email || "User";
+      const senderUid = user.id;
+      const body = text.trim();
+      await addDoc(collection(db, messagesCol, uid, "messages"), {
+        text: body,
+        from_admin: fromAdmin,
+        sender_uid: senderUid,
+        sender_name: senderName,
+        created_at: serverTimestamp(),
+        created_at_ms: now,
+      });
+      // upsert thread metadata
+      await setDoc(
+        doc(db, threadsCol, uid),
+        {
+          user_id: uid,
+          username: fromAdmin ? undefined : senderName,
+          last_message: body,
+          last_from_admin: fromAdmin,
+          updated_at: serverTimestamp(),
+          created_at_ms: now,
+        },
+        { merge: true },
+      );
+      setText("");
+    } catch (e: any) {
+      toast.error(e?.message || "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-3">
+      <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border border-border/40 bg-background/40 p-3 max-h-[55vh]">
+        {messages.length === 0 && <p className="text-center text-xs text-muted-foreground">No messages yet. Say hi 👋</p>}
+        {messages.map((m) => {
+          const mine = asAdmin ? m.from_admin : !m.from_admin;
+          return (
+            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${mine ? "bg-[var(--gradient-primary)] text-primary-foreground" : "bg-secondary text-foreground"}`}>
+                <p className="text-[10px] opacity-80">
+                  {m.from_admin ? "Admin" : (m.sender_name || "User")}
+                  {!m.from_admin && asAdmin && <span className="ml-1 opacity-70">· UID {m.sender_uid?.slice(0, 8)}</span>}
+                </p>
+                <p className="whitespace-pre-wrap break-words text-sm">{m.text}</p>
+                <p className="text-[9px] opacity-60">{fmtWhen(m.created_at_ms || m.created_at)}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={asAdmin ? "Reply as admin…" : "Type your message…"}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+        />
+        <Button onClick={send} disabled={sending || !text.trim()} className="bg-[var(--gradient-primary)] glow-primary">
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
