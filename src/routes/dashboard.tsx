@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
-import { Trophy, Wallet, User as UserIcon, Shield, Zap, Target, Award, TrendingUp } from "lucide-react";
+import { Trophy, Wallet, User as UserIcon, Shield, Zap, Target, Award, TrendingUp, LifeBuoy, MessageSquare } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth } from "@/context/AuthContext";
@@ -84,10 +84,12 @@ function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <QuickLink to="/tournaments" icon={<Trophy className="h-5 w-5" />} label="Tournaments" />
         <QuickLink to="/wallet" icon={<Wallet className="h-5 w-5" />} label="Wallet" />
         <QuickLink to="/profile" icon={<UserIcon className="h-5 w-5" />} label="Profile" />
+        <QuickLink to="/support" icon={<LifeBuoy className="h-5 w-5" />} label="Support" />
+        <QuickLink to="/chat" icon={<MessageSquare className="h-5 w-5" />} label="Chat" />
         {isAdmin && <QuickLink to="/admin" icon={<Shield className="h-5 w-5" />} label="Admin" />}
       </div>
 

@@ -287,12 +287,12 @@ function AdminPage() {
         <TabsContent value="new">
           <form onSubmit={handleCreateTournament} className="glass mt-4 space-y-3 rounded-xl p-5">
             <F name="title" label="Title" />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Sel name="game" label="Game" options={["Free Fire", "PUBG", "COD", "Valorant"]} />
               <Sel name="mode" label="Mode" options={["Solo", "Duo", "Squad"]} />
               <F name="map" label="Map" required={false} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <F name="entry_fee" label="Entry fee (৳)" type="number" />
               <F name="prize_pool" label="Prize pool (৳)" type="number" />
               <F name="prize_first" label="1st prize" type="number" />
@@ -320,15 +320,15 @@ function Empty({ msg }: { msg: string }) {
 }
 function Row({ title, sub, onApprove, onReject, onDelete }: { title: string; sub: string; onApprove: () => void; onReject: () => void; onDelete?: () => void }) {
   return (
-    <div className="glass flex items-center justify-between rounded-xl p-4">
-      <div>
+    <div className="glass flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <p className="font-semibold">{title}</p>
-        <p className="text-xs text-muted-foreground">{sub}</p>
+        <p className="break-words text-xs text-muted-foreground">{sub}</p>
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={onReject}>Reject</Button>
-        <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] glow-primary">Approve</Button>
-        {onDelete && <Button size="sm" variant="destructive" onClick={onDelete}><Trash2 className="h-3 w-3" /></Button>}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
+        <Button size="sm" variant="outline" onClick={onReject} className="px-2">Reject</Button>
+        <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] px-2 glow-primary">Approve</Button>
+        {onDelete && <Button size="sm" variant="destructive" onClick={onDelete} className="px-2"><Trash2 className="h-3 w-3" /></Button>}
       </div>
     </div>
   );
@@ -563,7 +563,7 @@ function PlayersDirectory() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{p.email || "—"}</p>
-                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                <div className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground sm:grid-cols-2">
                   <span>Auto UID: <code className="text-foreground/80">{p.uid || p.id}</code></span>
                   <span>Gaming UID: <code className="text-foreground/80">{p.gaming_uid || "—"}</code></span>
                   <span>Rank: {p.rank || "Rookie"}</span>
