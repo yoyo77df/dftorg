@@ -129,6 +129,10 @@ function TournamentDetail() {
   }, [id]);
 
   useEffect(() => {
+    if (!user) {
+      setParticipants([]);
+      return;
+    }
     const q = query(collection(getDb(), "tournament_participants"), where("tournament_id", "==", id));
     const unsub = onSnapshot(q, async (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -144,9 +148,9 @@ function TournamentDetail() {
       setParticipants(list
         .map((p: any) => ({ ...p, profile: profileMap.get(p.user_id) }))
         .sort((a, b) => tsMs(a.joined_at_ms ?? a.joined_at) - tsMs(b.joined_at_ms ?? b.joined_at)));
-    });
+    }, () => setParticipants([]));
     return () => unsub();
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     if (!user) {

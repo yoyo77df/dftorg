@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth, type Role } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -170,31 +171,31 @@ function AdminPage() {
         <div className="space-y-3">
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wallet</div>
-            <TabsList className="grid w-full grid-cols-3 gap-1">
-              <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
-              <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
-              <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
-            <TabsList className="grid w-full grid-cols-2 gap-1">
-              <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
-              <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Community</div>
-            <TabsList className="grid w-full grid-cols-3 gap-1">
-              <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
-              <TabsTrigger value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
-              <TabsTrigger value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
-            <TabsList className="grid w-full grid-cols-1 gap-1">
-              <TabsTrigger value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -458,6 +459,7 @@ function TournamentRow({ t }: { t: any }) {
 }
 
 function PlayersDirectory() {
+  const { currentUser } = useFirebaseAuth();
   const [players, setPlayers] = useState<Array<Record<string, any>>>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -525,6 +527,19 @@ function PlayersDirectory() {
     }
   };
 
+  const changeRole = async (uid: string, role: Role) => {
+    if (uid === currentUser?.uid && role !== "admin") {
+      toast.error("You can't remove your own admin access");
+      return;
+    }
+    try {
+      await setDoc(doc(getDb(), "users", uid), { role }, { merge: true });
+      toast.success(role === "admin" ? "User is now admin" : `Role changed to ${role}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Role update failed");
+    }
+  };
+
   return (
     <div className="mt-4 space-y-3">
       <div className="glass rounded-xl p-3 flex items-center gap-2">
@@ -578,6 +593,20 @@ function PlayersDirectory() {
                 onClick={() => adjust(p.id, p.username || p.name || "player", -Number(amounts[p.id] || 0))}>
                 <Minus className="mr-1 h-3 w-3" /> Remove
               </Button>
+              <select
+                value={p.role || "user"}
+                onChange={(e) => changeRole(p.id, e.target.value as Role)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="user">user</option>
+                <option value="mod">mod</option>
+                <option value="admin">admin</option>
+              </select>
+              {p.role !== "admin" && (
+                <Button size="sm" variant="outline" onClick={() => changeRole(p.id, "admin")}>
+                  <Shield className="mr-1 h-3 w-3" /> Make admin
+                </Button>
+              )}
             </div>
           </div>
         ))}

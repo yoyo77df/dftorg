@@ -121,7 +121,6 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       if (user) {
         setUserProfile(makeFallbackProfile(user));
-        setLoading(false);
         try {
           await ensureUserDoc(user);
         } catch (e) {

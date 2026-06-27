@@ -32,6 +32,10 @@ function DashboardPage() {
   }, [loading, user, navigate]);
 
   useEffect(() => {
+    if (!user) {
+      setTournaments([]);
+      return;
+    }
     const q = query(collection(getDb(), "tournaments"), where("status", "in", ["upcoming", "live"]), limit(8));
     const unsub = onSnapshot(q, (snap) => {
       setTournaments(snap.docs
@@ -40,7 +44,7 @@ function DashboardPage() {
         .slice(0, 4));
     });
     return () => unsub();
-  }, []);
+  }, [user]);
 
   if (loading) {
     return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Loading dashboard…</div>;
