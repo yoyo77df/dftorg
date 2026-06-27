@@ -55,16 +55,6 @@ export function ChatThread({
       const fromAdmin = !!asAdmin;
       const senderName = userProfile?.username || userProfile?.name || user.email || "User";
       const body = text.trim();
-
-      await addDoc(collection(db, messagesCol, uid, "messages"), {
-        text: body,
-        from_admin: fromAdmin,
-        sender_uid: user.id,
-        sender_name: senderName,
-        created_at: serverTimestamp(),
-        created_at_ms: now,
-      });
-
       await setDoc(
         doc(db, threadsCol, uid),
         {
@@ -77,6 +67,15 @@ export function ChatThread({
         },
         { merge: true },
       );
+
+      await addDoc(collection(db, messagesCol, uid, "messages"), {
+        text: body,
+        from_admin: fromAdmin,
+        sender_uid: user.id,
+        sender_name: senderName,
+        created_at: serverTimestamp(),
+        created_at_ms: now,
+      });
       setText("");
     } catch (e: any) {
       toast.error(e?.message || "Send failed");
