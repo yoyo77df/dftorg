@@ -45,7 +45,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-async function ensureUserDoc(user: User, fallbackName?: string) {
+async function ensureUserDoc(user: User, fallbackName?: string): Promise<Partial<UserProfile> & Record<string, unknown>> {
   const db = getDb();
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -57,7 +57,7 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
       name,
       username: name,
       photoURL: user.photoURL,
-      role: "user",
+      role: "user" as Role,
       country: "",
       gaming_uid: "",
       bio: null,
