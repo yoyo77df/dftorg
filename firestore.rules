@@ -15,6 +15,12 @@ service cloud.firestore {
         .hasAny(['role','balance','earnings','wins','xp','rank','tier',
                  'is_banned','total_kills','matches_played']);
     }
+    function onlyBalanceDecrease(data, prev) {
+      return data.diff(prev).affectedKeys().hasOnly(['balance'])
+        && data.balance is number
+        && prev.balance is number
+        && data.balance <= prev.balance;
+    }
 
     // ---------- USERS ----------
     match /users/{uid} {
@@ -27,6 +33,7 @@ service cloud.firestore {
         && (!('is_banned' in request.resource.data) || request.resource.data.is_banned == false);
       // Self-update: profile fields only — never privileged fields
       allow update: if (isSelf(uid) && !touchesPrivileged(request.resource.data, resource.data))
+                    || (isSelf(uid) && onlyBalanceDecrease(request.resource.data, resource.data))
                     || isAdmin();
       allow delete: if isAdmin();
     }
@@ -65,13 +72,16 @@ service cloud.firestore {
     match /tournaments/{id} {
       // Signed-in users only. Room credentials live in tournament_secrets.
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isSignedIn()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined_slots', 'updated_at'])
+            && request.resource.data.joined_slots == resource.data.joined_slots + 1);
     }
 
     // Top-level participants collection (doc id = `${tournamentId}_${uid}`)
     match /tournament_participants/{pid} {
-      allow read: if isSignedIn() &&
-        (isSelf(resource.data.user_id) || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSelf(request.resource.data.user_id);
       allow update, delete: if isAdmin();
     }
@@ -88,7 +98,7 @@ service cloud.firestore {
     // ---------- NOTIFICATIONS ----------
     match /notifications/{id} {
       allow read: if isSignedIn() &&
-        (resource.data.user_id == null || isSelf(resource.data.user_id) || isAdmin());
+        (resource.data.user_id == null || resource.data.user_id == 'all' || isSelf(resource.data.user_id) || isAdmin());
       // Broadcast notifications (user_id == null) may only be updated by admins.
       allow update: if isSignedIn() &&
         (isSelf(resource.data.user_id) || isAdmin());
@@ -114,8 +124,25 @@ service cloud.firestore {
       }
     }
 
+    match /support_messages/{uid}/messages/{mid} {
+      allow read: if isSignedIn() && (isSelf(uid) || isAdmin());
+      allow create: if isSignedIn() && (isSelf(uid) || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /chat_messages/{uid}/messages/{mid} {
+      allow read: if isSignedIn() && (isSelf(uid) || isAdmin());
+      allow create: if isSignedIn() && (isSelf(uid) || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
     // ---------- PUBLIC CONFIG (themes, support links) ----------
     match /app_config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app_settings/{doc} {
       allow read: if true;
       allow write: if isAdmin();
     }
