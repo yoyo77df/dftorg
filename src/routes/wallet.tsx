@@ -156,10 +156,10 @@ function WalletPage() {
       </div>
 
       <Tabs defaultValue="deposit" className="mt-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="deposit"><ArrowDownToLine className="mr-1 h-3 w-3" /> Deposit</TabsTrigger>
-          <TabsTrigger value="withdraw"><ArrowUpFromLine className="mr-1 h-3 w-3" /> Withdraw</TabsTrigger>
-          <TabsTrigger value="history"><Clock className="mr-1 h-3 w-3" /> History</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-3">
+          <TabsTrigger className="px-1.5 py-2 text-xs sm:text-sm" value="deposit"><ArrowDownToLine className="mr-1 h-3 w-3" /> Deposit</TabsTrigger>
+          <TabsTrigger className="px-1.5 py-2 text-xs sm:text-sm" value="withdraw"><ArrowUpFromLine className="mr-1 h-3 w-3" /> Withdraw</TabsTrigger>
+          <TabsTrigger className="px-1.5 py-2 text-xs sm:text-sm" value="history"><Clock className="mr-1 h-3 w-3" /> History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deposit">
@@ -228,7 +228,7 @@ function byCreatedDesc(a: any, b: any) {
 }
 
 function Row({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3">{children}</div>;
+  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>;
 }
 function Field({ name, label, type = "text", placeholder }: { name: string; label: string; type?: string; placeholder?: string }) {
   return (

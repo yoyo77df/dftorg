@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useFirebaseAuth, type Role } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -170,31 +171,31 @@ function AdminPage() {
         <div className="space-y-3">
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wallet</div>
-            <TabsList className="grid w-full grid-cols-3 gap-1">
-              <TabsTrigger value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
-              <TabsTrigger value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
-              <TabsTrigger value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
-            <TabsList className="grid w-full grid-cols-2 gap-1">
-              <TabsTrigger value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
-              <TabsTrigger value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Community</div>
-            <TabsList className="grid w-full grid-cols-3 gap-1">
-              <TabsTrigger value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
-              <TabsTrigger value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
-              <TabsTrigger value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
             </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
-            <TabsList className="grid w-full grid-cols-1 gap-1">
-              <TabsTrigger value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -286,12 +287,12 @@ function AdminPage() {
         <TabsContent value="new">
           <form onSubmit={handleCreateTournament} className="glass mt-4 space-y-3 rounded-xl p-5">
             <F name="title" label="Title" />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Sel name="game" label="Game" options={["Free Fire", "PUBG", "COD", "Valorant"]} />
               <Sel name="mode" label="Mode" options={["Solo", "Duo", "Squad"]} />
               <F name="map" label="Map" required={false} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <F name="entry_fee" label="Entry fee (৳)" type="number" />
               <F name="prize_pool" label="Prize pool (৳)" type="number" />
               <F name="prize_first" label="1st prize" type="number" />
@@ -319,15 +320,15 @@ function Empty({ msg }: { msg: string }) {
 }
 function Row({ title, sub, onApprove, onReject, onDelete }: { title: string; sub: string; onApprove: () => void; onReject: () => void; onDelete?: () => void }) {
   return (
-    <div className="glass flex items-center justify-between rounded-xl p-4">
-      <div>
+    <div className="glass flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <p className="font-semibold">{title}</p>
-        <p className="text-xs text-muted-foreground">{sub}</p>
+        <p className="break-words text-xs text-muted-foreground">{sub}</p>
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={onReject}>Reject</Button>
-        <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] glow-primary">Approve</Button>
-        {onDelete && <Button size="sm" variant="destructive" onClick={onDelete}><Trash2 className="h-3 w-3" /></Button>}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
+        <Button size="sm" variant="outline" onClick={onReject} className="px-2">Reject</Button>
+        <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] px-2 glow-primary">Approve</Button>
+        {onDelete && <Button size="sm" variant="destructive" onClick={onDelete} className="px-2"><Trash2 className="h-3 w-3" /></Button>}
       </div>
     </div>
   );
@@ -458,6 +459,7 @@ function TournamentRow({ t }: { t: any }) {
 }
 
 function PlayersDirectory() {
+  const { currentUser } = useFirebaseAuth();
   const [players, setPlayers] = useState<Array<Record<string, any>>>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -525,6 +527,19 @@ function PlayersDirectory() {
     }
   };
 
+  const changeRole = async (uid: string, role: Role) => {
+    if (uid === currentUser?.uid && role !== "admin") {
+      toast.error("You can't remove your own admin access");
+      return;
+    }
+    try {
+      await setDoc(doc(getDb(), "users", uid), { role }, { merge: true });
+      toast.success(role === "admin" ? "User is now admin" : `Role changed to ${role}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Role update failed");
+    }
+  };
+
   return (
     <div className="mt-4 space-y-3">
       <div className="glass rounded-xl p-3 flex items-center gap-2">
@@ -548,7 +563,7 @@ function PlayersDirectory() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{p.email || "—"}</p>
-                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                <div className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground sm:grid-cols-2">
                   <span>Auto UID: <code className="text-foreground/80">{p.uid || p.id}</code></span>
                   <span>Gaming UID: <code className="text-foreground/80">{p.gaming_uid || "—"}</code></span>
                   <span>Rank: {p.rank || "Rookie"}</span>
@@ -578,6 +593,20 @@ function PlayersDirectory() {
                 onClick={() => adjust(p.id, p.username || p.name || "player", -Number(amounts[p.id] || 0))}>
                 <Minus className="mr-1 h-3 w-3" /> Remove
               </Button>
+              <select
+                value={p.role || "user"}
+                onChange={(e) => changeRole(p.id, e.target.value as Role)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="user">user</option>
+                <option value="mod">mod</option>
+                <option value="admin">admin</option>
+              </select>
+              {p.role !== "admin" && (
+                <Button size="sm" variant="outline" onClick={() => changeRole(p.id, "admin")}>
+                  <Shield className="mr-1 h-3 w-3" /> Make admin
+                </Button>
+              )}
             </div>
           </div>
         ))}
