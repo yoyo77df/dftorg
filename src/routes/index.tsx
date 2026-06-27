@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import { useAuth } from "@/hooks/use-auth";
 
 function fmt(n: number | undefined): string {
   const v = n ?? 0;
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { user, loading } = useAuth();
   const [stats, setStats] = useState({
     players: 0,
     tournaments: 0,
@@ -36,6 +38,11 @@ function Index() {
   });
 
   useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      setStats({ players: 0, tournaments: 0, prize: 0, games: 0 });
+      return;
+    }
     const db = getDb();
     let players = 0;
     let tournamentRows: any[] = [];
@@ -44,19 +51,33 @@ function Index() {
       const games = new Set(tournamentRows.map((t) => t.game).filter(Boolean)).size;
       setStats({ players, tournaments: tournamentRows.length, prize, games });
     };
-    const u1 = onSnapshot(collection(db, "users"), (snap) => {
-      players = snap.size;
-      update();
-    });
-    const u2 = onSnapshot(collection(db, "tournaments"), (snap) => {
-      tournamentRows = snap.docs.map((d) => d.data());
-      update();
-    });
+    const u1 = onSnapshot(
+      collection(db, "users"),
+      (snap) => {
+        players = snap.size;
+        update();
+      },
+      () => {
+        players = 0;
+        update();
+      },
+    );
+    const u2 = onSnapshot(
+      collection(db, "tournaments"),
+      (snap) => {
+        tournamentRows = snap.docs.map((d) => d.data());
+        update();
+      },
+      () => {
+        tournamentRows = [];
+        update();
+      },
+    );
     return () => {
       u1();
       u2();
     };
-  }, []);
+  }, [loading, user]);
 
   const items = [
     { label: "Active players", value: fmt(stats.players) },
