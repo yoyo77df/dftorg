@@ -51,7 +51,7 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
   const snap = await getDoc(ref);
   const name = fallbackName || user.displayName || (user.email ? user.email.split("@")[0] : "Player");
   if (!snap.exists()) {
-    await setDoc(ref, {
+    const created = {
       uid: user.uid,
       email: user.email,
       name,
@@ -69,16 +69,21 @@ async function ensureUserDoc(user: User, fallbackName?: string) {
       earnings: 0,
       balance: 0,
       createdAt: serverTimestamp(),
-    });
+    };
+    await setDoc(ref, created);
+    return created;
   } else if (fallbackName || user.displayName || user.photoURL || user.email) {
     const existing = snap.data() as Partial<UserProfile> & { username?: string };
-    await setDoc(ref, {
+    const patch = {
       email: user.email,
       name: existing.name || name,
       username: existing.username || name,
       photoURL: user.photoURL,
-    }, { merge: true });
+    };
+    await setDoc(ref, patch, { merge: true });
+    return { ...existing, ...patch };
   }
+  return snap.data() as Partial<UserProfile> & Record<string, unknown>;
 }
 
 function makeFallbackProfile(user: User, data?: Partial<UserProfile> & Record<string, unknown>): UserProfile {
@@ -122,7 +127,8 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         setUserProfile(makeFallbackProfile(user));
         try {
-          await ensureUserDoc(user);
+          const synced = await ensureUserDoc(user);
+          setUserProfile(makeFallbackProfile(user, synced));
         } catch (e) {
           console.error("ensureUserDoc failed", e);
         }
@@ -158,39 +164,42 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     if (name) {
       await updateProfile(cred.user, { displayName: name });
     }
+    let synced: Partial<UserProfile> & Record<string, unknown> = { name, username: name };
     try {
-      await ensureUserDoc(cred.user, name);
+      synced = await ensureUserDoc(cred.user, name);
     } catch (e) {
       console.warn("User signed up, but Firestore profile write failed", e);
     }
     setCurrentUser(cred.user);
-    setUserProfile(makeFallbackProfile(cred.user, { name, username: name }));
+    setUserProfile(makeFallbackProfile(cred.user, synced));
     setLoading(false);
   };
 
   const login = async (email: string, password: string) => {
     const auth = getFirebaseAuth();
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    let synced: Partial<UserProfile> & Record<string, unknown> | undefined;
     try {
-      await ensureUserDoc(cred.user);
+      synced = await ensureUserDoc(cred.user);
     } catch (e) {
       console.warn("User signed in, but Firestore profile sync failed", e);
     }
     setCurrentUser(cred.user);
-    setUserProfile(makeFallbackProfile(cred.user));
+    setUserProfile(makeFallbackProfile(cred.user, synced));
     setLoading(false);
   };
 
   const loginWithGoogle = async () => {
     const auth = getFirebaseAuth();
     const cred = await signInWithPopup(auth, googleProvider);
+    let synced: Partial<UserProfile> & Record<string, unknown> | undefined;
     try {
-      await ensureUserDoc(cred.user);
+      synced = await ensureUserDoc(cred.user);
     } catch (e) {
       console.warn("Google sign-in succeeded, but Firestore profile sync failed", e);
     }
     setCurrentUser(cred.user);
-    setUserProfile(makeFallbackProfile(cred.user));
+    setUserProfile(makeFallbackProfile(cred.user, synced));
     setLoading(false);
   };
 

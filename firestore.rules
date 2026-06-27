@@ -107,8 +107,9 @@ service cloud.firestore {
 
     // ---------- SUPPORT / CHAT (private threads) ----------
     match /support_threads/{tid} {
-      allow read, write: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
-      allow create: if isSelf(request.resource.data.user_id);
+      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
+      allow create: if isSignedIn() && (isSelf(request.resource.data.user_id) || isAdmin());
+      allow update, delete: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
       match /messages/{mid} {
         allow read, create: if isSignedIn() &&
           (isSelf(get(/databases/$(database)/documents/support_threads/$(tid)).data.user_id) || isAdmin());
@@ -116,8 +117,9 @@ service cloud.firestore {
     }
 
     match /chat_threads/{tid} {
-      allow read, write: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
-      allow create: if isSelf(request.resource.data.user_id);
+      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
+      allow create: if isSignedIn() && (isSelf(request.resource.data.user_id) || isAdmin());
+      allow update, delete: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
       match /messages/{mid} {
         allow read, create: if isSignedIn() &&
           (isSelf(get(/databases/$(database)/documents/chat_threads/$(tid)).data.user_id) || isAdmin());
