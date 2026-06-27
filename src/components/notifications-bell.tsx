@@ -43,11 +43,13 @@ export function NotificationsBell() {
       setItems([]);
       return;
     }
-    const q = query(collection(getDb(), "notifications"), where("user_id", "in", [user.id, "all"]), limit(30));
-    const unsub = onSnapshot(q, (snap) => {
-      const next = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Notif)
-        .sort((a, b) => notifMs(b) - notifMs(a));
+    const col = collection(getDb(), "notifications");
+    const qMine = query(col, where("user_id", "==", user.id), limit(30));
+    const qAll = query(col, where("user_id", "==", "all"), limit(30));
+    let mine: Notif[] = [];
+    let all: Notif[] = [];
+    const merge = () => {
+      const next = [...mine, ...all].sort((a, b) => notifMs(b) - notifMs(a));
       setItems((prev) => {
         const previousIds = new Set(prev.map((n) => n.id));
         next.forEach((n) => {
@@ -55,20 +57,17 @@ export function NotificationsBell() {
             toast(n.title, {
               description: n.body ?? undefined,
               action: n.link
-                ? {
-                    label: "View",
-                    onClick: () => navigate({ to: n.link as any }),
-                  }
+                ? { label: "View", onClick: () => navigate({ to: n.link as any }) }
                 : undefined,
             });
           }
         });
         return next;
       });
-    }, () => {
-      setItems([]);
-    });
-    return () => unsub();
+    };
+    const u1 = onSnapshot(qMine, (s) => { mine = s.docs.map((d) => ({ id: d.id, ...d.data() }) as Notif); merge(); }, () => { mine = []; merge(); });
+    const u2 = onSnapshot(qAll, (s) => { all = s.docs.map((d) => ({ id: d.id, ...d.data() }) as Notif); merge(); }, () => { all = []; merge(); });
+    return () => { u1(); u2(); };
   }, [user, navigate]);
 
   const unread = items.filter(
