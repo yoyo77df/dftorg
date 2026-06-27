@@ -44,7 +44,7 @@ export function SiteHeader() {
           )}
         </div>
       </div>
-      <nav className="container mx-auto flex gap-2 overflow-x-auto px-4 pb-3 md:hidden">
+      <nav className="container mx-auto grid grid-cols-2 gap-2 px-4 pb-3 sm:grid-cols-3 md:hidden">
         {links.map((link) => <NavLink key={link.to} {...link} compact />)}
       </nav>
     </header>
