@@ -133,6 +133,7 @@ function defaultProfile(uid: string, email: string | null, name: string, photoUR
     total_kills: 0,
     matches_played: 0,
     earnings: 0,
+    balance: 0,
   };
 }
 

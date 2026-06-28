@@ -119,12 +119,18 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     let unsubDoc: (() => void) | null = null;
 
     const unsub = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       if (unsubDoc) {
         unsubDoc();
         unsubDoc = null;
       }
-      setCurrentUser(user);
       if (user) {
+        try {
+          await user.getIdToken(true);
+        } catch (e) {
+          console.error("Firebase auth token refresh failed", e);
+        }
+        setCurrentUser(user);
         setUserProfile(makeFallbackProfile(user));
         try {
           const synced = await ensureUserDoc(user);
@@ -147,6 +153,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         });
       } else {
+        setCurrentUser(null);
         setUserProfile(null);
         setLoading(false);
       }
@@ -159,6 +166,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = async (email: string, password: string, name: string) => {
+    setLoading(true);
     const auth = getFirebaseAuth();
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (name) {
@@ -166,6 +174,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
     }
     let synced: Partial<UserProfile> & Record<string, unknown> = { name, username: name };
     try {
+      await cred.user.getIdToken(true);
       synced = await ensureUserDoc(cred.user, name);
     } catch (e) {
       console.warn("User signed up, but Firestore profile write failed", e);
@@ -176,10 +185,12 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
+    setLoading(true);
     const auth = getFirebaseAuth();
     const cred = await signInWithEmailAndPassword(auth, email, password);
     let synced: Partial<UserProfile> & Record<string, unknown> | undefined;
     try {
+      await cred.user.getIdToken(true);
       synced = await ensureUserDoc(cred.user);
     } catch (e) {
       console.warn("User signed in, but Firestore profile sync failed", e);
@@ -190,10 +201,12 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
+    setLoading(true);
     const auth = getFirebaseAuth();
     const cred = await signInWithPopup(auth, googleProvider);
     let synced: Partial<UserProfile> & Record<string, unknown> | undefined;
     try {
+      await cred.user.getIdToken(true);
       synced = await ensureUserDoc(cred.user);
     } catch (e) {
       console.warn("Google sign-in succeeded, but Firestore profile sync failed", e);
