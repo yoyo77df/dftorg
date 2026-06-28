@@ -31,11 +31,54 @@ export const Route = createFileRoute("/admin/")({
 
 function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
+  const { userProfile } = useFirebaseAuth();
   const navigate = useNavigate();
+  const [checkingOwner, setCheckingOwner] = useState(true);
+  const [canClaimAdmin, setCanClaimAdmin] = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || !isAdmin)) navigate({ to: "/dashboard" });
-  }, [user, isAdmin, loading, navigate]);
+    if (!loading && !user) navigate({ to: "/dashboard" });
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (loading || !user || isAdmin) {
+      setCheckingOwner(false);
+      setCanClaimAdmin(false);
+      return;
+    }
+    let alive = true;
+    getDoc(doc(getDb(), "app_settings", "site_owner"))
+      .then((snap) => {
+        if (!alive) return;
+        setCanClaimAdmin(!snap.exists());
+        setCheckingOwner(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setCanClaimAdmin(false);
+        setCheckingOwner(false);
+      });
+    return () => { alive = false; };
+  }, [loading, user, isAdmin]);
+
+  const claimAdmin = async () => {
+    if (!user) return;
+    try {
+      const db = getDb();
+      await setDoc(doc(db, "users", user.id), { role: "admin" }, { merge: true });
+      await setDoc(doc(db, "app_settings", "site_owner"), {
+        owner_uid: user.id,
+        owner_email: user.email ?? userProfile?.email ?? null,
+        created_at: serverTimestamp(),
+        created_at_ms: Date.now(),
+      });
+      await user.getIdToken(true);
+      toast.success("Admin access enabled. Reloading…");
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e: any) {
+      toast.error(e?.message || "Admin setup failed");
+    }
+  };
 
   const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
@@ -158,7 +201,30 @@ function AdminPage() {
     }
   };
 
-  if (!user || !isAdmin) return null;
+  if (loading || checkingOwner) {
+    return <div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Loading admin…</div>;
+  }
+
+  if (!user) return null;
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto max-w-md px-4 py-10">
+        <div className="glass neon-border rounded-2xl p-6 text-center">
+          <Shield className="mx-auto h-10 w-10 text-primary" />
+          <h1 className="mt-3 text-2xl font-bold">Admin setup</h1>
+          {canClaimAdmin ? (
+            <>
+              <p className="mt-2 text-sm text-muted-foreground">No site owner is set yet. Make this account the admin to unlock the panel.</p>
+              <Button onClick={claimAdmin} className="mt-5 w-full bg-[var(--gradient-primary)] glow-primary">Make me admin</Button>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">This account does not have admin access.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

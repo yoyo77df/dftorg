@@ -21,11 +21,9 @@ service cloud.firestore {
         && prev.balance is number
         && data.balance <= prev.balance;
     }
-    function isOwnerBootstrap() {
+    function hasNoSiteOwner() {
       return isSignedIn()
-        && !exists(/databases/$(database)/documents/app_settings/site_owner)
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && !exists(/databases/$(database)/documents/app_settings/site_owner);
     }
 
     // ---------- USERS ----------
@@ -40,6 +38,9 @@ service cloud.firestore {
       // Self-update: profile fields only — never privileged fields
       allow update: if (isSelf(uid) && !touchesPrivileged(request.resource.data, resource.data))
                     || (isSelf(uid) && onlyBalanceDecrease(request.resource.data, resource.data))
+                    || (isSelf(uid) && hasNoSiteOwner()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+                        && request.resource.data.role == 'admin')
                     || isAdmin();
       allow delete: if isAdmin();
     }
