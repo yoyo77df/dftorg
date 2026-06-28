@@ -3,9 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { Trophy, Zap, Users, Wallet, Shield, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
-import { useAuth } from "@/hooks/use-auth";
 
 function fmt(n: number | undefined): string {
   const v = n ?? 0;
@@ -29,7 +28,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, loading } = useAuth();
   const [stats, setStats] = useState({
     players: 0,
     tournaments: 0,
@@ -38,11 +36,6 @@ function Index() {
   });
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      setStats({ players: 0, tournaments: 0, prize: 0, games: 0 });
-      return;
-    }
     const db = getDb();
     let players = 0;
     let tournamentRows: any[] = [];
@@ -51,10 +44,12 @@ function Index() {
       const games = new Set(tournamentRows.map((t) => t.game).filter(Boolean)).size;
       setStats({ players, tournaments: tournamentRows.length, prize, games });
     };
+    // Public stats doc (admin-maintained) — avoids requiring auth to list users.
     const u1 = onSnapshot(
-      collection(db, "users"),
+      doc(db, "app_settings", "public_stats"),
       (snap) => {
-        players = snap.size;
+        const data = snap.data() as { players?: number } | undefined;
+        players = Number(data?.players ?? 0);
         update();
       },
       () => {
@@ -77,7 +72,7 @@ function Index() {
       u1();
       u2();
     };
-  }, [loading, user]);
+  }, []);
 
   const items = [
     { label: "Active players", value: fmt(stats.players) },
