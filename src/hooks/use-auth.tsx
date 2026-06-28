@@ -16,11 +16,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = (): Ctx => {
   const { currentUser, loading, isAdmin, logout } = useFirebaseAuth();
+  const readyUser = !loading && currentUser ? Object.assign(currentUser, { id: currentUser.uid }) : null;
   return {
-    user: currentUser ? Object.assign(currentUser, { id: currentUser.uid }) : null,
+    user: readyUser,
     session: null,
     loading,
-    isAdmin,
+    isAdmin: !loading && isAdmin,
     signOut: logout,
   };
 };

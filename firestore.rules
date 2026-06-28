@@ -21,6 +21,12 @@ service cloud.firestore {
         && prev.balance is number
         && data.balance <= prev.balance;
     }
+    function isOwnerBootstrap() {
+      return isSignedIn()
+        && !exists(/databases/$(database)/documents/app_settings/site_owner)
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
     // ---------- USERS ----------
     match /users/{uid} {
@@ -147,6 +153,14 @@ service cloud.firestore {
     match /app_settings/{doc} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /app_settings/site_owner {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && !exists(/databases/$(database)/documents/app_settings/site_owner)
+        && request.resource.data.owner_uid == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     // Default deny
