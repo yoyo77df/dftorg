@@ -60,14 +60,17 @@ function WalletPage() {
     subs.push(onSnapshot(
       query(collection(db, "deposits"), where("user_id", "==", user.id), limit(20)),
       (s) => setDeposits(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+      () => setDeposits([]),
     ));
     subs.push(onSnapshot(
       query(collection(db, "withdrawals"), where("user_id", "==", user.id), limit(20)),
       (s) => setWithdrawals(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+      () => setWithdrawals([]),
     ));
     subs.push(onSnapshot(
       query(collection(db, "wallet_transactions"), where("user_id", "==", user.id), limit(40)),
       (s) => setTxns(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byCreatedDesc)),
+      () => setTxns([]),
     ));
     return () => subs.forEach((u) => u());
   }, [user]);
