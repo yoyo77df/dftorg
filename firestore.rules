@@ -18,8 +18,7 @@ service cloud.firestore {
     function onlyBalanceDecrease(data, prev) {
       return data.diff(prev).affectedKeys().hasOnly(['balance'])
         && data.balance is number
-        && prev.balance is number
-        && data.balance <= prev.balance;
+        && (!('balance' in prev) || !(prev.balance is number) || data.balance <= prev.balance);
     }
     function hasNoSiteOwner() {
       return isSignedIn()
@@ -83,7 +82,11 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isSignedIn()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined_slots', 'updated_at'])
-            && request.resource.data.joined_slots == resource.data.joined_slots + 1);
+            && request.resource.data.joined_slots is number
+            && request.resource.data.joined_slots ==
+               (('joined_slots' in resource.data) && resource.data.joined_slots is number
+                  ? resource.data.joined_slots + 1
+                  : 1));
     }
 
     // Top-level participants collection (doc id = `${tournamentId}_${uid}`)
