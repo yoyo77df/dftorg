@@ -54,14 +54,13 @@ service cloud.firestore {
 
     // ---------- WALLET LEDGER (read-only for users) ----------
     match /wallet_transactions/{id} {
-      // Signed-in list reads prevent Firestore query-proof permission failures in wallet/admin history.
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
       allow write: if isAdmin();
     }
 
     // ---------- DEPOSITS ----------
     match /deposits/{id} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
       allow create: if isSignedIn()
         && isSelf(request.resource.data.user_id)
         && request.resource.data.status == 'pending'
@@ -72,7 +71,7 @@ service cloud.firestore {
 
     // ---------- WITHDRAWALS ----------
     match /withdrawals/{id} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
       allow create: if isSignedIn()
         && isSelf(request.resource.data.user_id)
         && request.resource.data.status == 'pending'
@@ -103,14 +102,17 @@ service cloud.firestore {
 
     // Room credentials — only joined participants or admins may read.
     match /tournament_secrets/{tid} {
-      // UI still shows these only after join; this rule avoids fragile dynamic-path permission failures.
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/tournament_participants/$(tid + '_' + request.auth.uid))
+      );
       allow write: if isAdmin();
     }
 
     // ---------- NOTIFICATIONS ----------
     match /notifications/{id} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() &&
+        (resource.data.user_id == null || resource.data.user_id == 'all' || isSelf(resource.data.user_id) || isAdmin());
       // Broadcast notifications (user_id == null) may only be updated by admins.
       allow update: if isSignedIn() &&
         (isSelf(resource.data.user_id) || isAdmin());
