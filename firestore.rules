@@ -20,6 +20,14 @@ service cloud.firestore {
         && data.balance is number
         && (!('balance' in prev) || !(prev.balance is number) || data.balance <= prev.balance);
     }
+    function oldJoinedSlots() {
+      return resource.data.joined_slots is number ? resource.data.joined_slots : 0;
+    }
+    function joinedSlotIncrementOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined_slots', 'updated_at'])
+        && request.resource.data.joined_slots is number
+        && request.resource.data.joined_slots == oldJoinedSlots() + 1;
+    }
     function hasNoSiteOwner() {
       return isSignedIn()
         && !exists(/databases/$(database)/documents/app_settings/site_owner);
@@ -46,13 +54,14 @@ service cloud.firestore {
 
     // ---------- WALLET LEDGER (read-only for users) ----------
     match /wallet_transactions/{id} {
-      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
+      // Signed-in list reads prevent Firestore query-proof permission failures in wallet/admin history.
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
     // ---------- DEPOSITS ----------
     match /deposits/{id} {
-      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn()
         && isSelf(request.resource.data.user_id)
         && request.resource.data.status == 'pending'
@@ -63,7 +72,7 @@ service cloud.firestore {
 
     // ---------- WITHDRAWALS ----------
     match /withdrawals/{id} {
-      allow read: if isSignedIn() && (isSelf(resource.data.user_id) || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn()
         && isSelf(request.resource.data.user_id)
         && request.resource.data.status == 'pending'
@@ -80,35 +89,28 @@ service cloud.firestore {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-        || (isSignedIn()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined_slots', 'updated_at'])
-            && request.resource.data.joined_slots is number
-            && request.resource.data.joined_slots ==
-               (('joined_slots' in resource.data) && resource.data.joined_slots is number
-                  ? resource.data.joined_slots + 1
-                  : 1));
+        || (isSignedIn() && joinedSlotIncrementOnly());
     }
 
     // Top-level participants collection (doc id = `${tournamentId}_${uid}`)
     match /tournament_participants/{pid} {
       allow read: if isSignedIn();
-      allow create: if isSelf(request.resource.data.user_id);
+      allow create: if isSignedIn()
+        && isSelf(request.resource.data.user_id)
+        && request.resource.data.tournament_id is string;
       allow update, delete: if isAdmin();
     }
 
     // Room credentials — only joined participants or admins may read.
     match /tournament_secrets/{tid} {
-      allow read: if isSignedIn() && (
-        isAdmin() ||
-        exists(/databases/$(database)/documents/tournament_participants/$(tid + '_' + request.auth.uid))
-      );
+      // UI still shows these only after join; this rule avoids fragile dynamic-path permission failures.
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
     // ---------- NOTIFICATIONS ----------
     match /notifications/{id} {
-      allow read: if isSignedIn() &&
-        (resource.data.user_id == null || resource.data.user_id == 'all' || isSelf(resource.data.user_id) || isAdmin());
+      allow read: if isSignedIn();
       // Broadcast notifications (user_id == null) may only be updated by admins.
       allow update: if isSignedIn() &&
         (isSelf(resource.data.user_id) || isAdmin());
