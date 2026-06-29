@@ -2,256 +2,172 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isSelf(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    function signedInUserDoc() {
-      return /databases/$(database)/documents/users/$(request.auth.uid);
-    }
-
+    // -------- helpers --------
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function userDocPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
     function isAdmin() {
-      return isSignedIn()
-        && exists(signedInUserDoc())
-        && get(signedInUserDoc()).data.role == 'admin';
+      return signedIn()
+        && exists(userDocPath())
+        && get(userDocPath()).data.role == 'admin';
+    }
+    function noOwnerYet() {
+      return !exists(/databases/$(database)/documents/app_settings/site_owner);
+    }
+    function changed(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
 
-    function hasNoSiteOwner() {
-      return isSignedIn()
-        && !exists(/databases/$(database)/documents/app_settings/site_owner);
-    }
+    // -------- PUBLIC READS (no auth required) --------
+    match /app_settings/{doc} { allow read: if true; }
+    match /app_config/{doc}   { allow read: if true; }
+    match /tournaments/{id}   { allow read: if true; }
 
-    function existingBalance() {
-      return resource.data.balance is number ? resource.data.balance : 0;
-    }
-
-    function incomingBalance() {
-      return request.resource.data.balance is number ? request.resource.data.balance : existingBalance();
-    }
-
-    function userProfileCreateIsSafe(uid) {
-      return isSelf(uid)
-        && (!('uid' in request.resource.data) || request.resource.data.uid == uid)
-        && (!('role' in request.resource.data) || request.resource.data.role == 'user')
-        && (!('balance' in request.resource.data) || request.resource.data.balance == 0)
-        && (!('earnings' in request.resource.data) || request.resource.data.earnings == 0)
-        && (!('wins' in request.resource.data) || request.resource.data.wins == 0)
-        && (!('xp' in request.resource.data) || request.resource.data.xp == 0)
-        && (!('total_kills' in request.resource.data) || request.resource.data.total_kills == 0)
-        && (!('matches_played' in request.resource.data) || request.resource.data.matches_played == 0)
-        && (!('is_banned' in request.resource.data) || request.resource.data.is_banned == false);
-    }
-
-    function userProfileUpdateIsSafe(uid) {
-      return isSelf(uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'uid', 'email', 'name', 'username', 'photoURL', 'country', 'gaming_uid',
-          'bio', 'updatedAt', 'last_login_at'
-        ])
-        && (!('uid' in request.resource.data) || request.resource.data.uid == uid);
-    }
-
-    function firstAdminClaimIsSafe(uid) {
-      return isSelf(uid)
-        && hasNoSiteOwner()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-        && request.resource.data.role == 'admin';
-    }
-
-    function tournamentJoinCounterOnly() {
-      return isSignedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined_slots', 'updated_at'])
-        && request.resource.data.joined_slots is number
-        && request.resource.data.joined_slots == (resource.data.joined_slots is number ? resource.data.joined_slots : 0) + 1;
-    }
-
-    function participantCreateIsSafe(pid) {
-      return isSignedIn()
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.tournament_id is string
-        && pid == request.resource.data.tournament_id + '_' + request.auth.uid;
-    }
-
-    function ownLedgerCreateIsSafe() {
-      return isSignedIn()
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.type == 'tournament_entry'
-        && request.resource.data.amount is number
-        && request.resource.data.amount <= 0;
-    }
-
-    function ownDepositCreateIsSafe() {
-      return isSignedIn()
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.amount is number
-        && request.resource.data.amount > 0;
-    }
-
-    function ownWithdrawalCreateIsSafe() {
-      return isSignedIn()
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.amount is number
-        && request.resource.data.amount > 0
-        && request.resource.data.amount <= get(signedInUserDoc()).data.balance;
-    }
-
-    function supportThreadParticipant(tid) {
-      return isSignedIn() && (request.auth.uid == tid || isAdmin());
-    }
-
-    function threadDocParticipant() {
-      return isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
-    }
-
-    function threadCreateParticipant() {
-      return isSignedIn() && (request.resource.data.user_id == request.auth.uid || isAdmin());
-    }
-
-    function threadMessageCreateIsSafe(uid) {
-      return isSignedIn()
-        && (request.auth.uid == uid || isAdmin())
-        && request.resource.data.text is string
-        && request.resource.data.sender_uid == request.auth.uid
-        && request.resource.data.from_admin == isAdmin();
-    }
-
-    function notificationRecipientCanRead() {
-      return isSignedIn()
-        && (
-          resource.data.user_id == request.auth.uid
-          || resource.data.user_id == 'all'
-          || resource.data.user_id == null
-          || isAdmin()
-        );
-    }
-
-    // ---------- USERS ----------
+    // -------- USERS --------
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create: if userProfileCreateIsSafe(uid) || isAdmin();
-      allow update: if userProfileUpdateIsSafe(uid)
-        || firstAdminClaimIsSafe(uid)
-        || (isSelf(uid)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance'])
-            && incomingBalance() <= existingBalance())
-        || isAdmin();
+      allow read: if signedIn();
+
+      // Self-create profile (only safe defaults)
+      allow create: if isAdmin() || (
+        isSelf(uid)
+        && (!('role' in request.resource.data)    || request.resource.data.role == 'user')
+        && (!('balance' in request.resource.data) || request.resource.data.balance == 0)
+        && (!('is_banned' in request.resource.data)|| request.resource.data.is_banned == false)
+      );
+
+      // Updates
+      allow update: if isAdmin()
+        // First user can promote themselves to admin when no owner exists.
+        || (isSelf(uid) && noOwnerYet() && changed(['role']) && request.resource.data.role == 'admin')
+        // Self profile edits (no role/balance/ban escalation)
+        || (isSelf(uid) && changed([
+              'email','name','username','photoURL','country','gaming_uid',
+              'bio','updatedAt','last_login_at','rank','xp'
+            ]))
+        // Self balance change ONLY allowed to decrease (e.g. tournament entry)
+        || (isSelf(uid) && changed(['balance'])
+            && request.resource.data.balance is number
+            && request.resource.data.balance <= (resource.data.balance is number ? resource.data.balance : 0));
+
       allow delete: if isAdmin();
     }
 
-    // ---------- WALLET ----------
-    match /wallet_transactions/{id} {
-      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
-      allow create: if isAdmin() || ownLedgerCreateIsSafe();
-      allow update, delete: if isAdmin();
-    }
-
-    match /deposits/{id} {
-      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
-      allow create: if ownDepositCreateIsSafe() || isAdmin();
-      allow update, delete: if isAdmin();
-    }
-
-    match /withdrawals/{id} {
-      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
-      allow create: if ownWithdrawalCreateIsSafe() || isAdmin();
-      allow update, delete: if isAdmin();
-    }
-
-    // ---------- TOURNAMENTS ----------
+    // -------- TOURNAMENTS (writes) --------
     match /tournaments/{id} {
-      allow read: if true;
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || tournamentJoinCounterOnly();
+      // Admin can edit anything. Any signed-in user can only bump the join counter.
+      allow update: if isAdmin() || (
+        signedIn()
+        && changed(['joined_slots','updated_at'])
+        && request.resource.data.joined_slots is number
+        && request.resource.data.joined_slots ==
+             (resource.data.joined_slots is number ? resource.data.joined_slots : 0) + 1
+      );
     }
 
+    // -------- TOURNAMENT PARTICIPANTS --------
     match /tournament_participants/{pid} {
-      allow read: if isSignedIn();
-      allow create: if participantCreateIsSafe(pid) || isAdmin();
+      allow read: if signedIn();
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && pid == request.resource.data.tournament_id + '_' + request.auth.uid
+      );
       allow update, delete: if isAdmin();
     }
 
     match /tournament_secrets/{tid} {
-      allow read: if isSignedIn()
-        && (
-          isAdmin()
-          || exists(/databases/$(database)/documents/tournament_participants/$(tid + '_' + request.auth.uid))
-        );
+      allow read: if isAdmin() || (
+        signedIn()
+        && exists(/databases/$(database)/documents/tournament_participants/$(tid + '_' + request.auth.uid))
+      );
       allow write: if isAdmin();
     }
 
-    // ---------- NOTIFICATIONS ----------
+    // -------- WALLET / DEPOSITS / WITHDRAWALS --------
+    match /wallet_transactions/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.amount is number
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /deposits/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /withdrawals/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // -------- NOTIFICATIONS --------
     match /notifications/{id} {
-      allow read: if notificationRecipientCanRead();
+      allow read: if signedIn() && (
+        isAdmin()
+        || resource.data.user_id == request.auth.uid
+        || resource.data.user_id == 'all'
+        || resource.data.user_id == null
+      );
       allow create, update, delete: if isAdmin();
     }
 
-    // ---------- SUPPORT / CHAT THREADS ----------
+    // -------- SUPPORT & CHAT --------
     match /support_threads/{tid} {
-      allow read: if threadDocParticipant();
-      allow create: if threadCreateParticipant();
-      allow update: if threadDocParticipant() || threadCreateParticipant();
+      allow read, update: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
       allow delete: if isAdmin();
-
       match /messages/{mid} {
-        allow read: if supportThreadParticipant(tid);
-        allow create: if supportThreadParticipant(tid);
+        allow read, create: if signedIn() && (isAdmin() || request.auth.uid == tid);
         allow update, delete: if isAdmin();
       }
     }
-
     match /chat_threads/{tid} {
-      allow read: if threadDocParticipant();
-      allow create: if threadCreateParticipant();
-      allow update: if threadDocParticipant() || threadCreateParticipant();
+      allow read, update: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
       allow delete: if isAdmin();
-
       match /messages/{mid} {
-        allow read: if supportThreadParticipant(tid);
-        allow create: if supportThreadParticipant(tid);
+        allow read, create: if signedIn() && (isAdmin() || request.auth.uid == tid);
         allow update, delete: if isAdmin();
       }
     }
-
     match /support_messages/{uid}/messages/{mid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if threadMessageCreateIsSafe(uid);
+      allow read, create: if signedIn() && (isAdmin() || request.auth.uid == uid);
       allow update, delete: if isAdmin();
     }
-
     match /chat_messages/{uid}/messages/{mid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if threadMessageCreateIsSafe(uid);
+      allow read, create: if signedIn() && (isAdmin() || request.auth.uid == uid);
       allow update, delete: if isAdmin();
     }
 
-    // ---------- PUBLIC CONFIG ----------
-    match /app_config/{doc} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
+    // -------- APP SETTINGS / CONFIG writes --------
     match /app_settings/site_owner {
-      allow read: if true;
-      allow create: if isSignedIn()
-        && !exists(/databases/$(database)/documents/app_settings/site_owner)
+      allow create: if signedIn() && noOwnerYet()
         && request.resource.data.owner_uid == request.auth.uid;
       allow update, delete: if isAdmin();
     }
+    match /app_settings/{doc} { allow write: if isAdmin(); }
+    match /app_config/{doc}   { allow write: if isAdmin(); }
 
-    match /app_settings/{doc} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Default deny for anything the app does not use.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // -------- DEFAULT DENY --------
+    match /{document=**} { allow read, write: if false; }
   }
 }
