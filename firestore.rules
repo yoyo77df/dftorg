@@ -17,6 +17,12 @@ service cloud.firestore {
     function changed(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
+    function oldBalance() {
+      return ('balance' in resource.data) && resource.data.balance is number ? resource.data.balance : 0;
+    }
+    function oldJoinedSlots() {
+      return ('joined_slots' in resource.data) && resource.data.joined_slots is number ? resource.data.joined_slots : 0;
+    }
 
     // -------- PUBLIC READS (no auth required) --------
     match /app_settings/{doc} { allow read: if true; }
@@ -47,7 +53,7 @@ service cloud.firestore {
         // Self balance change ONLY allowed to decrease (e.g. tournament entry)
         || (isSelf(uid) && changed(['balance'])
             && request.resource.data.balance is number
-            && request.resource.data.balance <= (resource.data.balance is number ? resource.data.balance : 0));
+            && request.resource.data.balance <= oldBalance());
 
       allow delete: if isAdmin();
     }
@@ -60,8 +66,7 @@ service cloud.firestore {
         signedIn()
         && changed(['joined_slots','updated_at'])
         && request.resource.data.joined_slots is number
-        && request.resource.data.joined_slots ==
-             (resource.data.joined_slots is number ? resource.data.joined_slots : 0) + 1
+        && request.resource.data.joined_slots == oldJoinedSlots() + 1
       );
     }
 
