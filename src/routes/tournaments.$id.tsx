@@ -172,6 +172,13 @@ function TournamentDetail() {
   const handleJoin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return navigate({ to: "/auth" });
+    const status = String(t?.status ?? "").toLowerCase();
+    if (status && status !== "upcoming") {
+      return toast.error("Joining closed — tournament already started");
+    }
+    if (new Date(t?.start_time).getTime() <= Date.now()) {
+      return toast.error("Joining closed — tournament already started");
+    }
     const fd = new FormData(e.currentTarget);
     setJoining(true);
     try {
@@ -319,7 +326,12 @@ function TournamentDetail() {
             <p className="text-lg font-bold text-primary">✓ You're in!</p>
             <p className="mt-1 text-xs text-muted-foreground">Room ID & password are shown above when released.</p>
           </div>
-        ) : (
+      ) : (String(t.status ?? "").toLowerCase() !== "upcoming" && t.status) || new Date(t.start_time).getTime() <= Date.now() ? (
+        <div className="text-center">
+          <p className="text-lg font-bold text-destructive">🔒 Joining closed</p>
+          <p className="mt-1 text-xs text-muted-foreground">This tournament has already started or is no longer accepting entries.</p>
+        </div>
+      ) : (
           <form onSubmit={handleJoin} className="space-y-3">
             <h3 className="font-bold">Join tournament</h3>
             <div className="grid grid-cols-2 gap-3">
