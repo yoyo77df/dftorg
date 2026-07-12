@@ -383,6 +383,8 @@ function AdminPage() {
             </Button>
           </form>
         </TabsContent>
+          </div>
+        </div>
       </Tabs>
     </div>
   );
