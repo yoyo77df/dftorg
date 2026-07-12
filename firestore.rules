@@ -31,7 +31,8 @@ service cloud.firestore {
 
     // -------- USERS --------
     match /users/{uid} {
-      allow read: if signedIn();
+      // Sensitive fields (email, balance, role, is_banned) live here — only owner or admin can read.
+      allow read: if isAdmin() || isSelf(uid);
 
       // Self-create profile (only safe defaults)
       allow create: if isAdmin() || (
@@ -55,6 +56,18 @@ service cloud.firestore {
             && request.resource.data.balance is number
             && request.resource.data.balance <= oldBalance());
 
+      allow delete: if isAdmin();
+    }
+
+    // -------- PUBLIC USER PROFILE MIRROR --------
+    // Non-sensitive, display-only mirror readable by any signed-in user.
+    match /user_public/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || (
+        isSelf(uid)
+        && request.resource.data.diff(resource.data.keys() == null ? {} : resource.data)
+             .affectedKeys().hasOnly(['name','username','photoURL','country','gaming_uid','bio','rank','xp','wins','total_kills','matches_played','updatedAt'])
+      );
       allow delete: if isAdmin();
     }
 
