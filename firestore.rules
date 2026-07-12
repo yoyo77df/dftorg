@@ -63,10 +63,13 @@ service cloud.firestore {
     // Non-sensitive, display-only mirror readable by any signed-in user.
     match /user_public/{uid} {
       allow read: if signedIn();
-      allow create, update: if isAdmin() || (
+      allow create: if isAdmin() || (
         isSelf(uid)
-        && request.resource.data.diff(resource.data.keys() == null ? {} : resource.data)
-             .affectedKeys().hasOnly(['name','username','photoURL','country','gaming_uid','bio','rank','xp','wins','total_kills','matches_played','updatedAt'])
+        && request.resource.data.keys().hasOnly(['name','username','photoURL','country','gaming_uid','bio','rank','xp','wins','total_kills','matches_played','updatedAt'])
+      );
+      allow update: if isAdmin() || (
+        isSelf(uid)
+        && changed(['name','username','photoURL','country','gaming_uid','bio','updatedAt'])
       );
       allow delete: if isAdmin();
     }
