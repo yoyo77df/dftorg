@@ -65,6 +65,16 @@ function ProfilePage() {
         bio: String(fd.get("bio")).trim() || null,
         updatedAt: serverTimestamp(),
       }, { merge: true });
+      try {
+        await setDoc(doc(getDb(), "user_public", user!.id), {
+          name: username,
+          username,
+          country: String(fd.get("country")).trim(),
+          gaming_uid: String(fd.get("gaming_uid")).trim(),
+          bio: String(fd.get("bio")).trim() || null,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (err) { console.warn("user_public mirror update failed", err); }
       toast.success("Profile updated");
       qc.invalidateQueries({ queryKey: ["profile"] });
     } catch (error: any) {
