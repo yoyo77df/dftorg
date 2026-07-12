@@ -94,6 +94,14 @@ service cloud.firestore {
         signedIn()
         && request.resource.data.user_id == request.auth.uid
         && pid == request.resource.data.tournament_id + '_' + request.auth.uid
+        && (
+          get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournament_id)).data.entry_fee == 0
+          || (
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance
+              <= get(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance
+                 - get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournament_id)).data.entry_fee
+          )
+        )
       );
       allow update, delete: if isAdmin();
     }
