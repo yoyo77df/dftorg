@@ -234,40 +234,40 @@ function AdminPage() {
       </div>
 
       <Tabs defaultValue="deposits" className="mt-6">
-        <div className="space-y-3">
-          <div>
-            <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wallet</div>
-            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="deposits"><Wallet className="mr-1 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
-            </TabsList>
-            <TabsList className="mt-1 grid h-auto w-full grid-cols-1 gap-1">
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="limits"><Wallet className="mr-1 h-3 w-3" /> Deposit / Withdraw limits</TabsTrigger>
-            </TabsList>
-          </div>
-          <div>
-            <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
-            <TabsList className="grid h-auto w-full grid-cols-2 gap-1">
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="manage"><Trophy className="mr-1 h-3 w-3" /> Manage</TabsTrigger>
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="new"><Trophy className="mr-1 h-3 w-3" /> New</TabsTrigger>
-            </TabsList>
-          </div>
-          <div>
-            <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Community</div>
-            <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="players"><UserCircle2 className="mr-1 h-3 w-3" /> Players</TabsTrigger>
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="support"><LifeBuoy className="mr-1 h-3 w-3" /> Support</TabsTrigger>
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="chat"><MessageSquare className="mr-1 h-3 w-3" /> Chat</TabsTrigger>
-            </TabsList>
-          </div>
-          <div>
-            <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
-            <TabsList className="grid h-auto w-full grid-cols-1 gap-1">
-              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="theme"><Palette className="mr-1 h-3 w-3" /> Theme</TabsTrigger>
-            </TabsList>
-          </div>
-        </div>
+        <div className="grid grid-cols-[minmax(160px,220px)_1fr] gap-4">
+          <aside className="space-y-3">
+            <div>
+              <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wallet</div>
+              <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="deposits"><Wallet className="mr-2 h-3 w-3" /> Deposits ({pendingDeposits?.length ?? 0})</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="withdrawals"><Wallet className="mr-2 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="txns"><Receipt className="mr-2 h-3 w-3" /> Transactions</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="limits"><Wallet className="mr-2 h-3 w-3" /> Limits</TabsTrigger>
+              </TabsList>
+            </div>
+            <div>
+              <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
+              <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="manage"><Trophy className="mr-2 h-3 w-3" /> Manage</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="new"><Trophy className="mr-2 h-3 w-3" /> New</TabsTrigger>
+              </TabsList>
+            </div>
+            <div>
+              <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Community</div>
+              <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="players"><UserCircle2 className="mr-2 h-3 w-3" /> Players</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="support"><LifeBuoy className="mr-2 h-3 w-3" /> Support</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="chat"><MessageSquare className="mr-2 h-3 w-3" /> Chat</TabsTrigger>
+              </TabsList>
+            </div>
+            <div>
+              <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
+              <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="theme"><Palette className="mr-2 h-3 w-3" /> Theme</TabsTrigger>
+              </TabsList>
+            </div>
+          </aside>
+          <div className="min-w-0">
 
         <TabsContent value="deposits" className="mt-4 space-y-2">
           {(pendingDeposits ?? []).length === 0 && <Empty msg="No pending deposits." />}
