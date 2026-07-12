@@ -157,9 +157,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    const saved = getSavedTheme();
-    if (saved && saved !== "none") applyTheme(saved);
-    // public theme broadcast — admin choice overrides for everyone
+    // Public (admin-set) theme is the single source of truth — no local fallback.
     const unsub = subscribePublicTheme();
     return () => unsub();
   }, []);
