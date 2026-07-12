@@ -48,7 +48,7 @@ service cloud.firestore {
         // Self profile edits (no role/balance/ban escalation)
         || (isSelf(uid) && changed([
               'email','name','username','photoURL','country','gaming_uid',
-              'bio','updatedAt','last_login_at','rank','xp'
+              'bio','updatedAt','last_login_at'
             ]))
         // Self balance change ONLY allowed to decrease (e.g. tournament entry)
         || (isSelf(uid) && changed(['balance'])
@@ -67,6 +67,7 @@ service cloud.firestore {
         && changed(['joined_slots','updated_at'])
         && request.resource.data.joined_slots is number
         && request.resource.data.joined_slots == oldJoinedSlots() + 1
+        && existsAfter(/databases/$(database)/documents/tournament_participants/$(id + '_' + request.auth.uid))
       );
     }
 
