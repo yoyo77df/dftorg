@@ -19,6 +19,11 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/tournaments", changefreq: "hourly", priority: "0.9" },
           { path: "/auth", changefreq: "monthly", priority: "0.5" },
+          { path: "/login", changefreq: "monthly", priority: "0.5" },
+          { path: "/forgot-password", changefreq: "monthly", priority: "0.3" },
+          { path: "/dashboard", changefreq: "weekly", priority: "0.4" },
+          { path: "/profile", changefreq: "weekly", priority: "0.4" },
+          { path: "/chat", changefreq: "weekly", priority: "0.4" },
         ];
 
         // Pull live tournaments from Firestore REST (public read).
