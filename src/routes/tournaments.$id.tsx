@@ -138,7 +138,7 @@ function TournamentDetail() {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const profiles = await Promise.all(list.map(async (p: any) => {
         try {
-          const ps = await getDoc(doc(getDb(), "users", p.user_id));
+          const ps = await getDoc(doc(getDb(), "user_public", p.user_id));
           return [p.user_id, ps.exists() ? ps.data() : null] as const;
         } catch {
           return [p.user_id, null] as const;

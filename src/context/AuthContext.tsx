@@ -71,6 +71,14 @@ async function ensureUserDoc(user: User, fallbackName?: string): Promise<Partial
       createdAt: serverTimestamp(),
     };
     await setDoc(ref, created);
+    try {
+      await setDoc(doc(db, "user_public", user.uid), {
+        name, username: name, photoURL: user.photoURL,
+        country: "", gaming_uid: "", bio: null,
+        rank: "Rookie", xp: 0, wins: 0, total_kills: 0, matches_played: 0,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) { console.warn("user_public mirror create failed", e); }
     return created;
   } else if (fallbackName || user.displayName || user.photoURL || user.email) {
     const existing = snap.data() as Partial<UserProfile> & { username?: string };
@@ -81,6 +89,12 @@ async function ensureUserDoc(user: User, fallbackName?: string): Promise<Partial
       photoURL: user.photoURL,
     };
     await setDoc(ref, patch, { merge: true });
+    try {
+      await setDoc(doc(db, "user_public", user.uid), {
+        name: patch.name, username: patch.username, photoURL: patch.photoURL,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (e) { console.warn("user_public mirror update failed", e); }
     return { ...existing, ...patch };
   }
   return snap.data() as Partial<UserProfile> & Record<string, unknown>;
