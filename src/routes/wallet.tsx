@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Wallet as WalletIcon, ArrowDownToLine, ArrowUpFromLine, Clock } from "lucide-react";
 import {
-  addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp, where,
+  addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, where,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,15 +29,14 @@ export const Route = createFileRoute("/wallet")({
   component: WalletPage,
 });
 
-const depositSchema = z.object({
-  amount: z.coerce.number().min(50, { message: "Minimum deposit is ৳50" }).max(1_000_000),
+const baseDepositSchema = z.object({
+  amount: z.coerce.number().max(1_000_000),
   method: z.enum(["bKash", "Nagad", "Rocket"]),
   phone: z.string().trim().min(6).max(20),
   transaction_id: z.string().trim().min(3).max(60).optional(),
 });
-
-const withdrawSchema = z.object({
-  amount: z.coerce.number().min(50, { message: "Minimum withdraw is ৳50" }).max(1_000_000),
+const baseWithdrawSchema = z.object({
+  amount: z.coerce.number().max(1_000_000),
   method: z.enum(["bKash", "Nagad", "Rocket"]),
   phone: z.string().trim().min(6).max(20),
 });
@@ -52,6 +51,17 @@ function WalletPage() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [txns, setTxns] = useState<any[]>([]);
+  const [minDeposit, setMinDeposit] = useState<number>(50);
+  const [minWithdraw, setMinWithdraw] = useState<number>(50);
+
+  useEffect(() => {
+    const db = getDb();
+    return onSnapshot(doc(db, "app_settings", "limits"), (s) => {
+      const d = (s.data() as any) || {};
+      setMinDeposit(Number(d.min_deposit ?? 50) || 50);
+      setMinWithdraw(Number(d.min_withdraw ?? 50) || 50);
+    }, () => {});
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -82,13 +92,14 @@ function WalletPage() {
   const handleDeposit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const parsed = depositSchema.safeParse({
+    const parsed = baseDepositSchema.safeParse({
       amount: fd.get("amount"),
       method: fd.get("method"),
       phone: fd.get("phone"),
       transaction_id: fd.get("transaction_id"),
     });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    if (parsed.data.amount < minDeposit) return toast.error(`Minimum deposit is ৳${minDeposit}`);
     if (!parsed.data.transaction_id) return toast.error("Transaction ID required");
     setSubmitting(true);
     try {
@@ -115,12 +126,13 @@ function WalletPage() {
   const handleWithdraw = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const parsed = withdrawSchema.safeParse({
+    const parsed = baseWithdrawSchema.safeParse({
       amount: fd.get("amount"),
       method: fd.get("method"),
       phone: fd.get("phone"),
     });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    if (parsed.data.amount < minWithdraw) return toast.error(`Minimum withdraw is ৳${minWithdraw}`);
     if (parsed.data.amount > balance) return toast.error("Insufficient balance");
     setSubmitting(true);
     try {
@@ -168,10 +180,10 @@ function WalletPage() {
         <TabsContent value="deposit">
           <form onSubmit={handleDeposit} className="glass mt-4 space-y-3 rounded-xl p-5">
             <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-xs text-muted-foreground">
-              Send money to <span className="font-bold text-foreground">01957941250 (bKash/Nagad)</span>, then submit details below. Minimum deposit ৳50. Admin approval required.
+              Send money to <span className="font-bold text-foreground">01957941250 (bKash/Nagad)</span>, then submit details below. Minimum deposit <span className="font-bold text-foreground">৳{minDeposit}</span>. Admin approval required.
             </p>
             <Row>
-              <Field name="amount" type="number" label="Amount (৳)" placeholder="50" />
+              <Field name="amount" type="number" label={`Amount (৳) — min ৳${minDeposit}`} placeholder={String(minDeposit)} />
               <SelectField name="method" label="Method" options={["bKash", "Nagad", "Rocket"]} />
             </Row>
             <Row>
@@ -184,14 +196,20 @@ function WalletPage() {
           </form>
 
           <List title="Your deposits" items={deposits.map((d) => ({
-            id: d.id, label: `${d.method} · ৳${d.amount}`, sub: d.transaction_id, status: d.status,
+            id: d.id,
+            label: `${d.method} · ৳${d.amount}`,
+            sub: `${d.transaction_id ?? ""}${d.transaction_id ? " · " : ""}${fmtWhen(d.created_at_ms ?? d.created_at)}`,
+            status: d.status,
           }))} />
         </TabsContent>
 
         <TabsContent value="withdraw">
           <form onSubmit={handleWithdraw} className="glass mt-4 space-y-3 rounded-xl p-5">
+            <p className="rounded-md border border-primary/40 bg-primary/10 p-3 text-xs text-muted-foreground">
+              Minimum withdraw <span className="font-bold text-foreground">৳{minWithdraw}</span>. Admin approval required.
+            </p>
             <Row>
-              <Field name="amount" type="number" label="Amount (৳)" placeholder="50" />
+              <Field name="amount" type="number" label={`Amount (৳) — min ৳${minWithdraw}`} placeholder={String(minWithdraw)} />
               <SelectField name="method" label="Method" options={["bKash", "Nagad", "Rocket"]} />
             </Row>
             <Field name="phone" label="Receiver phone" placeholder="01XXXXXXXXX" />
@@ -201,7 +219,10 @@ function WalletPage() {
           </form>
 
           <List title="Your withdrawals" items={withdrawals.map((w) => ({
-            id: w.id, label: `${w.method} · ৳${w.amount}`, sub: w.phone, status: w.status,
+            id: w.id,
+            label: `${w.method} · ৳${w.amount}`,
+            sub: `${w.phone} · ${fmtWhen(w.created_at_ms ?? w.created_at)}`,
+            status: w.status,
           }))} />
         </TabsContent>
 
@@ -213,6 +234,7 @@ function WalletPage() {
                 <div>
                   <p className="text-sm font-semibold capitalize">{String(t.type || "").replace(/_/g, " ")}</p>
                   <p className="text-xs text-muted-foreground">{t.description}</p>
+                  <p className="text-[10px] text-muted-foreground">{fmtWhen(t.created_at_ms ?? t.created_at)}</p>
                 </div>
                 <p className={`font-bold ${Number(t.amount) >= 0 ? "text-primary" : "text-destructive"}`}>
                   {Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toFixed(0)}
@@ -228,6 +250,16 @@ function WalletPage() {
 
 function byCreatedDesc(a: any, b: any) {
   return Number(b.created_at_ms || 0) - Number(a.created_at_ms || 0);
+}
+
+function fmtWhen(v: any): string {
+  if (!v) return "";
+  const ms = typeof v === "number" ? v
+    : typeof v?.toMillis === "function" ? v.toMillis()
+    : typeof v?.seconds === "number" ? v.seconds * 1000
+    : new Date(v).getTime();
+  if (!ms || isNaN(ms)) return "";
+  return new Date(ms).toLocaleString();
 }
 
 function Row({ children }: { children: React.ReactNode }) {
