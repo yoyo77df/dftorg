@@ -242,6 +242,9 @@ function AdminPage() {
               <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
               <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
             </TabsList>
+            <TabsList className="mt-1 grid h-auto w-full grid-cols-1 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="limits"><Wallet className="mr-1 h-3 w-3" /> Deposit / Withdraw limits</TabsTrigger>
+            </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
@@ -319,6 +322,10 @@ function AdminPage() {
 
         <TabsContent value="theme">
           <ThemeManager />
+        </TabsContent>
+
+        <TabsContent value="limits">
+          <LimitsManager />
         </TabsContent>
 
         <TabsContent value="txns" className="mt-4 space-y-2">
