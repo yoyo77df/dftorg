@@ -94,6 +94,14 @@ service cloud.firestore {
         signedIn()
         && request.resource.data.user_id == request.auth.uid
         && pid == request.resource.data.tournament_id + '_' + request.auth.uid
+        && (
+          get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournament_id)).data.entry_fee == 0
+          || (
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance
+              <= get(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance
+                 - get(/databases/$(database)/documents/tournaments/$(request.resource.data.tournament_id)).data.entry_fee
+          )
+        )
       );
       allow update, delete: if isAdmin();
     }
@@ -109,11 +117,8 @@ service cloud.firestore {
     // -------- WALLET / DEPOSITS / WITHDRAWALS --------
     match /wallet_transactions/{id} {
       allow read: if signedIn() && (isAdmin() || resource.data.user_id == request.auth.uid);
-      allow create: if isAdmin() || (
-        signedIn()
-        && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.amount is number
-      );
+      // Ledger entries only writable by trusted admin flows; users cannot fabricate history.
+      allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
