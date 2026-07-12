@@ -242,6 +242,9 @@ function AdminPage() {
               <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="withdrawals"><Wallet className="mr-1 h-3 w-3" /> Withdrawals ({pendingWithdrawals?.length ?? 0})</TabsTrigger>
               <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="txns"><Receipt className="mr-1 h-3 w-3" /> Transactions</TabsTrigger>
             </TabsList>
+            <TabsList className="mt-1 grid h-auto w-full grid-cols-1 gap-1">
+              <TabsTrigger className="px-1.5 py-2 text-[11px] sm:text-sm" value="limits"><Wallet className="mr-1 h-3 w-3" /> Deposit / Withdraw limits</TabsTrigger>
+            </TabsList>
           </div>
           <div>
             <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tournaments</div>
@@ -319,6 +322,10 @@ function AdminPage() {
 
         <TabsContent value="theme">
           <ThemeManager />
+        </TabsContent>
+
+        <TabsContent value="limits">
+          <LimitsManager />
         </TabsContent>
 
         <TabsContent value="txns" className="mt-4 space-y-2">
@@ -724,6 +731,78 @@ async function notifyUser(userId: string, title: string, body: string, link: str
 /* ---------- Theme Manager (public, broadcast to all users) ---------- */
 
 function ThemeManager() {
+  return <ThemeManagerInner />;
+}
+
+function LimitsManager() {
+  const [minDeposit, setMinDeposit] = useState<string>("50");
+  const [minWithdraw, setMinWithdraw] = useState<string>("50");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const db = getDb();
+    const unsub = onSnapshot(doc(db, "app_settings", "limits"), (s) => {
+      const d = (s.data() as any) || {};
+      setMinDeposit(String(d.min_deposit ?? 50));
+      setMinWithdraw(String(d.min_withdraw ?? 50));
+      setLoaded(true);
+    });
+    return () => unsub();
+  }, []);
+
+  const save = async () => {
+    const md = Number(minDeposit);
+    const mw = Number(minWithdraw);
+    if (!(md > 0)) return toast.error("Minimum deposit must be greater than 0");
+    if (!(mw > 0)) return toast.error("Minimum withdraw must be greater than 0");
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(getDb(), "app_settings", "limits"),
+        { min_deposit: md, min_withdraw: mw, updated_at: serverTimestamp() },
+        { merge: true },
+      );
+      toast.success("Limits updated — users can only deposit / withdraw at or above these amounts");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="glass neon-border rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold">Deposit &amp; Withdraw limits</h3>
+          <p className="text-xs text-muted-foreground">
+            Set the minimum amount a user can deposit or withdraw. Users cannot submit a
+            request below these values.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="min_deposit">Minimum deposit (৳)</Label>
+            <Input id="min_deposit" type="number" min="1" value={minDeposit}
+              onChange={(e) => setMinDeposit(e.target.value)} disabled={!loaded} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="min_withdraw">Minimum withdraw (৳)</Label>
+            <Input id="min_withdraw" type="number" min="1" value={minWithdraw}
+              onChange={(e) => setMinWithdraw(e.target.value)} disabled={!loaded} />
+          </div>
+        </div>
+        <Button onClick={save} disabled={saving || !loaded}
+          className="bg-[var(--gradient-primary)] glow-primary">
+          {saving ? "Saving…" : "Save limits"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ThemeManagerInner() {
   const [active, setActive] = useState<string>("none");
   const [filter, setFilter] = useState("");
   const [saving, setSaving] = useState(false);
