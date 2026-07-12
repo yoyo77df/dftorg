@@ -247,8 +247,6 @@ export const FAVORITE_PRESETS: ThemePreset[] = [
 
 export const ALL_PRESETS: ThemePreset[] = [...FAVORITE_PRESETS, ...THEME_PRESETS];
 
-const THEME_STORAGE_KEY = "dft.theme";
-
 export function applyTheme(id: string | null) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -257,18 +255,16 @@ export function applyTheme(id: string | null) {
   ALL_PRESETS.forEach((p) => Object.keys(p.vars).forEach((k) => allKeys.add(k)));
   allKeys.forEach((k) => root.style.removeProperty(k));
   if (!id || id === "none") {
-    if (typeof window !== "undefined") localStorage.removeItem(THEME_STORAGE_KEY);
     return;
   }
   const preset = ALL_PRESETS.find((p) => p.id === id);
   if (!preset) return;
   Object.entries(preset.vars).forEach(([k, v]) => root.style.setProperty(k, v));
-  if (typeof window !== "undefined") localStorage.setItem(THEME_STORAGE_KEY, id);
 }
 
 export function getSavedTheme(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(THEME_STORAGE_KEY);
+  // No local fallback — the public (admin-set) theme is the single source of truth.
+  return null;
 }
 
 /** Subscribe to the public, admin-set theme; auto-applies for everyone. */
