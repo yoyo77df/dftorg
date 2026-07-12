@@ -286,7 +286,7 @@ function SelectField({ name, label, options }: { name: string; label: string; op
 function List({ title, items }: { title: string; items: { id: string; label: string; sub?: string | null; status: string }[] }) {
   return (
     <div className="mt-6">
-      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">{title}</h3>
+      <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{title}</h2>
       <div className="glass divide-y divide-border/60 rounded-xl">
         {items.length === 0 && <p className="p-4 text-center text-xs text-muted-foreground">Nothing yet.</p>}
         {items.map((i) => (
