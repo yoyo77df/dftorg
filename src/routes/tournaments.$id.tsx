@@ -241,9 +241,9 @@ function TournamentDetail() {
         <Countdown target={t.start_time} />
 
         <div className="mt-5 rounded-xl border border-primary/40 bg-primary/10 p-4">
-          <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+          <h2 className="text-sm font-bold text-primary flex items-center gap-2">
             🔑 Room ID & Password
-          </h3>
+          </h2>
           {joined && secret?.room_id && secret?.room_password ? (
             <div className="mt-2 space-y-1 text-sm">
               <p>
@@ -289,7 +289,7 @@ function TournamentDetail() {
 
       <div className="glass mt-6 rounded-2xl p-6">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> Participants</h3>
+          <h2 className="font-bold flex items-center gap-2"><Users className="h-4 w-4" /> Participants</h2>
           <span className="text-xs text-muted-foreground">{participants?.length ?? 0} / {t.total_slots}</span>
         </div>
         {(participants?.length ?? 0) === 0 ? (
@@ -333,7 +333,7 @@ function TournamentDetail() {
         </div>
       ) : (
           <form onSubmit={handleJoin} className="space-y-3">
-            <h3 className="font-bold">Join tournament</h3>
+            <h2 className="font-bold">Join tournament</h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="team_name">Team name</Label>

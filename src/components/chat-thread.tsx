@@ -112,7 +112,7 @@ export function ChatThread({
           placeholder={asAdmin ? "Reply as admin…" : "Type your message…"}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
         />
-        <Button onClick={send} disabled={sending || !text.trim()} className="bg-[var(--gradient-primary)] glow-primary">
+        <Button onClick={send} disabled={sending || !text.trim()} aria-label="Send message" className="bg-[var(--gradient-primary)] glow-primary">
           <Send className="h-4 w-4" />
         </Button>
       </div>
