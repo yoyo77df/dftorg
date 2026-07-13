@@ -433,6 +433,41 @@ function TournamentRow({ t }: { t: any }) {
   const [pwd, setPwd] = useState("");
   const [status, setStatus] = useState(t.status);
   const [saving, setSaving] = useState(false);
+  const [manualTeam, setManualTeam] = useState("");
+  const [manualIgl, setManualIgl] = useState("");
+  const [addingManual, setAddingManual] = useState(false);
+
+  const addManualParticipant = async () => {
+    const team = manualTeam.trim();
+    const igl = manualIgl.trim();
+    if (!team || !igl) return toast.error("Team name and IGL name required");
+    setAddingManual(true);
+    try {
+      const db = getDb();
+      const manualId = `manual_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      await setDoc(doc(db, "tournament_participants", `${t.id}_${manualId}`), {
+        tournament_id: t.id,
+        user_id: manualId,
+        team_name: team,
+        igl_name: igl,
+        manual: true,
+        added_by_admin: true,
+        joined_at: serverTimestamp(),
+        joined_at_ms: Date.now(),
+      });
+      await updateDoc(doc(db, "tournaments", t.id), {
+        joined_slots: increment(1),
+        updated_at: serverTimestamp(),
+      });
+      toast.success(`Added ${team} to the slot`);
+      setManualTeam("");
+      setManualIgl("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to add participant");
+    } finally {
+      setAddingManual(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -527,6 +562,18 @@ function TournamentRow({ t }: { t: any }) {
             <Button size="sm" variant="destructive" onClick={remove}>Delete</Button>
           </div>
           <p className="text-[11px] text-muted-foreground">Room ID & password automatically appear to joined participants on the tournament page.</p>
+
+          <div className="mt-4 border-t border-border/60 pt-4 space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Add participant manually</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={manualTeam} onChange={(e) => setManualTeam(e.target.value)} placeholder="Team name" maxLength={40} />
+              <Input value={manualIgl} onChange={(e) => setManualIgl(e.target.value)} placeholder="IGL name" maxLength={40} />
+            </div>
+            <Button size="sm" onClick={addManualParticipant} disabled={addingManual} variant="outline" className="w-full">
+              <Plus className="mr-1 h-3 w-3" /> {addingManual ? "Adding…" : "Add to slot"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">Manually added entries occupy a slot but aren't tied to a wallet.</p>
+          </div>
         </div>
       )}
     </div>
