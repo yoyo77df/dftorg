@@ -184,7 +184,7 @@ function AdminPage() {
         prize_third: Number(fd.get("prize_third") || 0),
         total_slots: Number(fd.get("total_slots") || 0),
         joined_slots: 0,
-        start_time: new Date(String(fd.get("start_time"))).toISOString(),
+        start_time: bdLocalToISO(String(fd.get("start_time"))),
         description: String(fd.get("description") || "") || null,
         status: "upcoming",
         has_room: false,
@@ -433,6 +433,41 @@ function TournamentRow({ t }: { t: any }) {
   const [pwd, setPwd] = useState("");
   const [status, setStatus] = useState(t.status);
   const [saving, setSaving] = useState(false);
+  const [manualTeam, setManualTeam] = useState("");
+  const [manualIgl, setManualIgl] = useState("");
+  const [addingManual, setAddingManual] = useState(false);
+
+  const addManualParticipant = async () => {
+    const team = manualTeam.trim();
+    const igl = manualIgl.trim();
+    if (!team || !igl) return toast.error("Team name and IGL name required");
+    setAddingManual(true);
+    try {
+      const db = getDb();
+      const manualId = `manual_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      await setDoc(doc(db, "tournament_participants", `${t.id}_${manualId}`), {
+        tournament_id: t.id,
+        user_id: manualId,
+        team_name: team,
+        igl_name: igl,
+        manual: true,
+        added_by_admin: true,
+        joined_at: serverTimestamp(),
+        joined_at_ms: Date.now(),
+      });
+      await updateDoc(doc(db, "tournaments", t.id), {
+        joined_slots: increment(1),
+        updated_at: serverTimestamp(),
+      });
+      toast.success(`Added ${team} to the slot`);
+      setManualTeam("");
+      setManualIgl("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to add participant");
+    } finally {
+      setAddingManual(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -488,7 +523,7 @@ function TournamentRow({ t }: { t: any }) {
             <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] uppercase text-primary">{t.status}</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {t.game} · {t.mode} · {t.joined_slots}/{t.total_slots} · {new Date(t.start_time).toLocaleString()}
+            {t.game} · {t.mode} · {t.joined_slots}/{t.total_slots} · {fmtBD(t.start_time)}
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -527,6 +562,18 @@ function TournamentRow({ t }: { t: any }) {
             <Button size="sm" variant="destructive" onClick={remove}>Delete</Button>
           </div>
           <p className="text-[11px] text-muted-foreground">Room ID & password automatically appear to joined participants on the tournament page.</p>
+
+          <div className="mt-4 border-t border-border/60 pt-4 space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Add participant manually</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={manualTeam} onChange={(e) => setManualTeam(e.target.value)} placeholder="Team name" maxLength={40} />
+              <Input value={manualIgl} onChange={(e) => setManualIgl(e.target.value)} placeholder="IGL name" maxLength={40} />
+            </div>
+            <Button size="sm" onClick={addManualParticipant} disabled={addingManual} variant="outline" className="w-full">
+              <Plus className="mr-1 h-3 w-3" /> {addingManual ? "Adding…" : "Add to slot"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">Manually added entries occupy a slot but aren't tied to a wallet.</p>
+          </div>
         </div>
       )}
     </div>
@@ -711,7 +758,38 @@ function byCreatedAsc(a: any, b: any) {
 }
 function fmtWhen(v: any): string {
   const ms = tsMs(v);
-  return ms ? new Date(ms).toLocaleString() : "—";
+  return ms ? fmtBD(ms) : "—";
+}
+
+// Convert a <input type="datetime-local"> value entered as Bangladesh time
+// (Asia/Dhaka, UTC+6, no DST) into a correct UTC ISO string. Prevents wrong
+// stored times when the admin's browser is not in BD.
+function bdLocalToISO(local: string): string {
+  if (!local) return new Date().toISOString();
+  // Interpret the local string as if it were UTC, then shift back by +06:00.
+  const asUtc = new Date(local + ":00Z").getTime();
+  if (isNaN(asUtc)) return new Date(local).toISOString();
+  return new Date(asUtc - 6 * 60 * 60 * 1000).toISOString();
+}
+
+// Bangladesh time (Asia/Dhaka), day-month-year order.
+// e.g. "13 Jul 2026, 08:00 PM"
+export function fmtBD(v: any): string {
+  const ms = tsMs(v);
+  if (!ms) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString();
+  }
 }
 
 async function notifyUser(userId: string, title: string, body: string, link: string, type: string) {
