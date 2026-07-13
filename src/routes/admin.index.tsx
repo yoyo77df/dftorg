@@ -711,7 +711,27 @@ function byCreatedAsc(a: any, b: any) {
 }
 function fmtWhen(v: any): string {
   const ms = tsMs(v);
-  return ms ? new Date(ms).toLocaleString() : "—";
+  return ms ? fmtBD(ms) : "—";
+}
+
+// Bangladesh time (Asia/Dhaka), day-month-year order.
+// e.g. "13 Jul 2026, 08:00 PM"
+export function fmtBD(v: any): string {
+  const ms = tsMs(v);
+  if (!ms) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString();
+  }
 }
 
 async function notifyUser(userId: string, title: string, body: string, link: string, type: string) {
