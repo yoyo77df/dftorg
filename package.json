@@ -8,6 +8,8 @@
     "build": "NITRO_PRESET=cloudflare-module vite build",
     "build:vercel": "NITRO_PRESET=vercel vite build && node scripts/vercel-postbuild.mjs",
     "build:dev": "NITRO_PRESET=cloudflare-module vite build --mode development",
+    "build:mobile": "vite build --outDir dist",
+    "apk": "npm run build:mobile && npx cap sync android && cd android && gradlew.bat assembleDebug",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
