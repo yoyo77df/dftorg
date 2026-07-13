@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon, Megaphone } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth, type Role } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -264,6 +264,7 @@ function AdminPage() {
               <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
               <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
                 <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="theme"><Palette className="mr-2 h-3 w-3" /> Theme</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="announcement"><Megaphone className="mr-2 h-3 w-3" /> Announcement</TabsTrigger>
               </TabsList>
             </div>
           </aside>
@@ -322,6 +323,10 @@ function AdminPage() {
 
         <TabsContent value="theme">
           <ThemeManager />
+        </TabsContent>
+
+        <TabsContent value="announcement">
+          <AnnouncementManager />
         </TabsContent>
 
         <TabsContent value="limits">
