@@ -131,5 +131,16 @@ function tsMs(v: any): number {
 
 function fmtWhen(v: any): string {
   const ms = tsMs(v);
-  return ms ? new Date(ms).toLocaleString() : "—";
+  if (!ms) return "—";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "numeric", minute: "2-digit", hour12: true,
+    }).formatToParts(new Date(ms));
+    const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${g("day")} ${g("month")} ${g("year")}, ${g("hour")}:${g("minute")} ${g("dayPeriod").toUpperCase()}`;
+  } catch {
+    return new Date(ms).toISOString();
+  }
 }
