@@ -269,7 +269,7 @@ function TournamentDetail() {
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <Info icon={<Coins className="h-4 w-4" />} label="Prize Pool" value={`৳${Number(t.prize_pool).toLocaleString()}`} />
           <Info icon={<Trophy className="h-4 w-4" />} label="Entry" value={`৳${Number(t.entry_fee).toLocaleString()}`} />
-          <Info icon={<Clock className="h-4 w-4" />} label="Starts" value={new Date(t.start_time).toLocaleString()} />
+          <Info icon={<Clock className="h-4 w-4" />} label="Starts" value={fmtBD(t.start_time)} />
           <Info icon={<MapPin className="h-4 w-4" />} label="Status" value={t.status} />
         </div>
 
@@ -410,4 +410,23 @@ function tsMs(v: any): number {
   if (typeof v?.seconds === "number") return v.seconds * 1000;
   const t = new Date(v).getTime();
   return isNaN(t) ? 0 : t;
+}
+
+// Bangladesh time (Asia/Dhaka), day-month-year order.
+function fmtBD(v: any): string {
+  const ms = tsMs(v);
+  if (!ms) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString();
+  }
 }
