@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { applyTheme, getSavedTheme, subscribePublicTheme } from "@/lib/themes";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
+import { AnnouncementModal } from "@/components/announcement-modal";
 
 import appCss from "../styles.css?url";
 
@@ -180,6 +181,7 @@ function RootComponent() {
             <Outlet />
           </main>
         </div>
+        <AnnouncementModal />
         <Toaster />
       </FirebaseAuthProvider>
     </QueryClientProvider>

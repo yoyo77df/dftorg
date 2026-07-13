@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon } from "lucide-react";
+import { Shield, Trophy, Wallet, Pencil, LifeBuoy, MessageSquare, Search, Minus, Receipt, Trash2, UserCircle2, Palette, Plus, Link as LinkIcon, Megaphone } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth, type Role } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -264,6 +264,7 @@ function AdminPage() {
               <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</div>
               <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent p-0">
                 <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="theme"><Palette className="mr-2 h-3 w-3" /> Theme</TabsTrigger>
+                <TabsTrigger className="w-full justify-start px-2 py-2 text-xs sm:text-sm" value="announcement"><Megaphone className="mr-2 h-3 w-3" /> Announcement</TabsTrigger>
               </TabsList>
             </div>
           </aside>
@@ -322,6 +323,10 @@ function AdminPage() {
 
         <TabsContent value="theme">
           <ThemeManager />
+        </TabsContent>
+
+        <TabsContent value="announcement">
+          <AnnouncementManager />
         </TabsContent>
 
         <TabsContent value="limits">
@@ -404,6 +409,95 @@ function Row({ title, sub, onApprove, onReject, onDelete }: { title: string; sub
         <Button size="sm" variant="outline" onClick={onReject} className="px-2">Reject</Button>
         <Button size="sm" onClick={onApprove} className="bg-[var(--gradient-primary)] px-2 glow-primary">Approve</Button>
         {onDelete && <Button size="sm" variant="destructive" onClick={onDelete} className="px-2"><Trash2 className="h-3 w-3" /></Button>}
+      </div>
+    </div>
+  );
+}
+
+function AnnouncementManager() {
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(getDb(), "app_settings", "announcement"), (snap) => {
+      const d = (snap.data() as any) || {};
+      setTitle(d.title ?? "");
+      setMessage(d.message ?? "");
+      setEnabled(!!d.enabled);
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, []);
+
+  const save = async (nextEnabled: boolean) => {
+    setSaving(true);
+    try {
+      await setDoc(doc(getDb(), "app_settings", "announcement"), {
+        title: title.trim() || null,
+        message: message.trim(),
+        enabled: nextEnabled && !!message.trim(),
+        updated_at: serverTimestamp(),
+        updated_at_ms: Date.now(),
+      }, { merge: true });
+      setEnabled(nextEnabled && !!message.trim());
+      toast.success(nextEnabled ? "Announcement published" : "Announcement saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="glass mt-4 rounded-xl p-6 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  return (
+    <div className="glass mt-4 space-y-4 rounded-xl p-5">
+      <div>
+        <h2 className="text-lg font-semibold">Site Announcement</h2>
+        <p className="text-xs text-muted-foreground">
+          Shown as a popup the first time each visitor opens the site. Users see it again whenever you update the message.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ann_title">Title (optional)</Label>
+        <Input id="ann_title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New tournament live!" maxLength={80} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ann_message">Message</Label>
+        <textarea
+          id="ann_message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={5}
+          maxLength={800}
+          placeholder="Write the announcement visitors should see…"
+          className="flex w-full rounded-md border border-input bg-background p-2 text-sm"
+        />
+        <p className="text-[11px] text-muted-foreground">{message.length}/800</p>
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
+        <div>
+          <p className="text-sm font-medium">Status</p>
+          <p className="text-xs text-muted-foreground">
+            {enabled ? "Live — visitors will see this popup." : "Hidden — nothing will pop up."}
+          </p>
+        </div>
+        <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+          {enabled ? "Live" : "Off"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" disabled={saving} onClick={() => save(false)}>
+          {saving ? "Saving…" : "Save & hide"}
+        </Button>
+        <Button disabled={saving || !message.trim()} onClick={() => save(true)} className="bg-[var(--gradient-primary)] glow-primary">
+          {saving ? "Saving…" : "Publish"}
+        </Button>
       </div>
     </div>
   );
