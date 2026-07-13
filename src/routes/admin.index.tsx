@@ -772,21 +772,23 @@ function bdLocalToISO(local: string): string {
   return new Date(asUtc - 6 * 60 * 60 * 1000).toISOString();
 }
 
-// Bangladesh time (Asia/Dhaka), day-month-year order.
-// e.g. "13 Jul 2026, 08:00 PM"
+// Bangladesh time (Asia/Dhaka), day-month-year order, 12-hour with AM/PM.
+// e.g. "13 Jul 2026, 10:00 PM"
 export function fmtBD(v: any): string {
   const ms = tsMs(v);
   if (!ms) return "—";
   try {
-    return new Intl.DateTimeFormat("en-GB", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Dhaka",
       day: "2-digit",
       month: "short",
       year: "numeric",
-      hour: "2-digit",
+      hour: "numeric",
       minute: "2-digit",
       hour12: true,
-    }).format(new Date(ms));
+    }).formatToParts(new Date(ms));
+    const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${g("day")} ${g("month")} ${g("year")}, ${g("hour")}:${g("minute")} ${g("dayPeriod").toUpperCase()}`;
   } catch {
     return new Date(ms).toISOString();
   }

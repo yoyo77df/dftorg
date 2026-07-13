@@ -412,20 +412,22 @@ function tsMs(v: any): number {
   return isNaN(t) ? 0 : t;
 }
 
-// Bangladesh time (Asia/Dhaka), day-month-year order.
+// Bangladesh time (Asia/Dhaka), day-month-year order, 12-hour with AM/PM.
 function fmtBD(v: any): string {
   const ms = tsMs(v);
   if (!ms) return "—";
   try {
-    return new Intl.DateTimeFormat("en-GB", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Dhaka",
       day: "2-digit",
       month: "short",
       year: "numeric",
-      hour: "2-digit",
+      hour: "numeric",
       minute: "2-digit",
       hour12: true,
-    }).format(new Date(ms));
+    }).formatToParts(new Date(ms));
+    const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${g("day")} ${g("month")} ${g("year")}, ${g("hour")}:${g("minute")} ${g("dayPeriod").toUpperCase()}`;
   } catch {
     return new Date(ms).toISOString();
   }
