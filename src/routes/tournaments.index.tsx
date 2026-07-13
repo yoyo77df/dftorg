@@ -66,7 +66,7 @@ function TournamentsPage() {
             <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
               <Stat icon={<Coins className="h-3.5 w-3.5" />} label="Prize" value={`৳${Number(t.prize_pool).toLocaleString()}`} />
               <Stat icon={<Users className="h-3.5 w-3.5" />} label="Slots" value={`${t.joined_slots}/${t.total_slots}`} />
-              <Stat icon={<Clock className="h-3.5 w-3.5" />} label="Starts" value={new Date(t.start_time).toLocaleDateString()} />
+              <Stat icon={<Clock className="h-3.5 w-3.5" />} label="Starts" value={fmtBDDate(t.start_time)} />
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-4">
@@ -108,4 +108,20 @@ function SkeletonGrid() {
       ))}
     </div>
   );
+}
+
+// Bangladesh time (Asia/Dhaka), day-month-year (date only).
+function fmtBDDate(v: any): string {
+  const t = new Date(v).getTime();
+  if (isNaN(t)) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(t));
+  } catch {
+    return new Date(t).toDateString();
+  }
 }

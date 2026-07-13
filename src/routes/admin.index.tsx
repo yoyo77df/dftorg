@@ -184,7 +184,7 @@ function AdminPage() {
         prize_third: Number(fd.get("prize_third") || 0),
         total_slots: Number(fd.get("total_slots") || 0),
         joined_slots: 0,
-        start_time: new Date(String(fd.get("start_time"))).toISOString(),
+        start_time: bdLocalToISO(String(fd.get("start_time"))),
         description: String(fd.get("description") || "") || null,
         status: "upcoming",
         has_room: false,
@@ -712,6 +712,17 @@ function byCreatedAsc(a: any, b: any) {
 function fmtWhen(v: any): string {
   const ms = tsMs(v);
   return ms ? fmtBD(ms) : "—";
+}
+
+// Convert a <input type="datetime-local"> value entered as Bangladesh time
+// (Asia/Dhaka, UTC+6, no DST) into a correct UTC ISO string. Prevents wrong
+// stored times when the admin's browser is not in BD.
+function bdLocalToISO(local: string): string {
+  if (!local) return new Date().toISOString();
+  // Interpret the local string as if it were UTC, then shift back by +06:00.
+  const asUtc = new Date(local + ":00Z").getTime();
+  if (isNaN(asUtc)) return new Date(local).toISOString();
+  return new Date(asUtc - 6 * 60 * 60 * 1000).toISOString();
 }
 
 // Bangladesh time (Asia/Dhaka), day-month-year order.
