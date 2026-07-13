@@ -488,7 +488,7 @@ function TournamentRow({ t }: { t: any }) {
             <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] uppercase text-primary">{t.status}</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {t.game} · {t.mode} · {t.joined_slots}/{t.total_slots} · {new Date(t.start_time).toLocaleString()}
+            {t.game} · {t.mode} · {t.joined_slots}/{t.total_slots} · {fmtBD(t.start_time)}
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
