@@ -25,7 +25,14 @@ service cloud.firestore {
     }
 
     // -------- PUBLIC READS (no auth required) --------
-    match /app_settings/{doc} { allow read: if true; }
+    // Most app_settings docs are intentionally public (theme, limits, support links,
+    // announcement). site_owner contains admin PII (email + uid) and must NOT be public.
+    match /app_settings/{doc} {
+      allow read: if doc != 'site_owner';
+    }
+    match /app_settings/site_owner {
+      allow read: if isAdmin();
+    }
     match /app_config/{doc}   { allow read: if true; }
     match /tournaments/{id}   { allow read: if true; }
 
@@ -66,6 +73,13 @@ service cloud.firestore {
       allow create: if isAdmin() || (
         isSelf(uid)
         && request.resource.data.keys().hasOnly(['name','username','photoURL','country','gaming_uid','bio','rank','xp','wins','total_kills','matches_played','updatedAt'])
+        // Stats fields can only be set to their safe defaults on create;
+        // real values flow in later via trusted server/admin writes.
+        && (!('rank' in request.resource.data)           || request.resource.data.rank == 'Rookie')
+        && (!('xp' in request.resource.data)             || request.resource.data.xp == 0)
+        && (!('wins' in request.resource.data)           || request.resource.data.wins == 0)
+        && (!('total_kills' in request.resource.data)    || request.resource.data.total_kills == 0)
+        && (!('matches_played' in request.resource.data) || request.resource.data.matches_played == 0)
       );
       allow update: if isAdmin() || (
         isSelf(uid)
