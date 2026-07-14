@@ -6,7 +6,8 @@ import { Wallet as WalletIcon, ArrowDownToLine, ArrowUpFromLine, Clock } from "l
 import {
   addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, where,
 } from "firebase/firestore";
-import { getDb } from "@/lib/firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getDb, getFbStorage } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirebaseAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -101,8 +102,17 @@ function WalletPage() {
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     if (parsed.data.amount < minDeposit) return toast.error(`Minimum deposit is ৳${minDeposit}`);
     if (!parsed.data.transaction_id) return toast.error("Transaction ID required");
+    const screenshot = fd.get("screenshot") as File | null;
+    if (!screenshot || screenshot.size === 0) return toast.error("Payment screenshot required");
+    if (screenshot.size > 5 * 1024 * 1024) return toast.error("Screenshot must be under 5MB");
+    if (!screenshot.type.startsWith("image/")) return toast.error("Screenshot must be an image");
     setSubmitting(true);
     try {
+      const ext = (screenshot.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `deposits/${user!.id}/${Date.now()}.${ext}`;
+      const sref = storageRef(getFbStorage(), path);
+      await uploadBytes(sref, screenshot, { contentType: screenshot.type });
+      const screenshot_url = await getDownloadURL(sref);
       await addDoc(collection(getDb(), "deposits"), {
         user_id: user!.id,
         username: userProfile?.username || userProfile?.name || user!.email || "user",
@@ -110,6 +120,8 @@ function WalletPage() {
         method: parsed.data.method,
         phone: parsed.data.phone,
         transaction_id: parsed.data.transaction_id,
+        screenshot_url,
+        screenshot_path: path,
         status: "pending",
         created_at: serverTimestamp(),
         created_at_ms: Date.now(),
@@ -190,6 +202,10 @@ function WalletPage() {
               <Field name="phone" label="Sender phone" placeholder="01XXXXXXXXX" />
               <Field name="transaction_id" label="Transaction ID" placeholder="TXN1234" />
             </Row>
+            <div className="space-y-1.5">
+              <Label htmlFor="screenshot">Payment screenshot (required, max 5MB)</Label>
+              <Input id="screenshot" name="screenshot" type="file" accept="image/*" required />
+            </div>
             <Button disabled={submitting} className="w-full bg-[var(--gradient-primary)] glow-primary">
               {submitting ? "Submitting…" : "Submit deposit"}
             </Button>
